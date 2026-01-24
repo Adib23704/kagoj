@@ -18,7 +18,6 @@ export default async function SharedViewerPage({ params }: PageProps) {
         select: {
           id: true,
           name: true,
-          pageCount: true,
         },
       },
     },
@@ -47,7 +46,10 @@ export default async function SharedViewerPage({ params }: PageProps) {
             <BookOpen className="w-6 h-6 text-gray-900" />
             <span className="font-bold text-gray-900">Kagoj</span>
           </Link>
-          <Link href="/signup" className="text-sm text-gray-600 hover:text-gray-900">
+          <Link
+            href="/signup"
+            className="text-sm text-gray-600 hover:text-gray-900"
+          >
             Create your own flipbook
           </Link>
         </div>
@@ -55,11 +57,7 @@ export default async function SharedViewerPage({ params }: PageProps) {
 
       {/* Viewer */}
       <main>
-        <FlipbookViewer
-          pdfUrl={pdfUrl}
-          pageCount={shareLink.pdf.pageCount}
-          title={shareLink.pdf.name}
-        />
+        <FlipbookViewer pdfUrl={pdfUrl} title={shareLink.pdf.name} />
       </main>
     </div>
   );
