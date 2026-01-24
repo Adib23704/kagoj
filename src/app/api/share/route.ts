@@ -16,7 +16,10 @@ export async function POST(req: NextRequest) {
     const { pdfId } = await req.json();
 
     if (!pdfId) {
-      return NextResponse.json({ error: "PDF ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "PDF ID is required" },
+        { status: 400 },
+      );
     }
 
     // Verify PDF belongs to user
@@ -43,6 +46,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ shareLink, shareUrl }, { status: 201 });
   } catch (error) {
     console.error("Error creating share link:", error);
-    return NextResponse.json({ error: "Failed to create share link" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create share link" },
+      { status: 500 },
+    );
   }
 }

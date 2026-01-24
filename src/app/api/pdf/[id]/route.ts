@@ -53,7 +53,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     const result = pdfRenameSchema.safeParse(body);
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error.errors[0].message }, { status: 400 });
+      return NextResponse.json(
+        { error: result.error.issues[0].message },
+        { status: 400 },
+      );
     }
 
     const existingPdf = await prisma.pdf.findFirst({
@@ -72,7 +75,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ pdf });
   } catch (error) {
     console.error("Error updating PDF:", error);
-    return NextResponse.json({ error: "Failed to update PDF" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update PDF" },
+      { status: 500 },
+    );
   }
 }
 
@@ -104,6 +110,9 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting PDF:", error);
-    return NextResponse.json({ error: "Failed to delete PDF" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete PDF" },
+      { status: 500 },
+    );
   }
 }

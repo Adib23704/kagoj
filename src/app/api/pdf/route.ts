@@ -32,7 +32,10 @@ export async function GET() {
     return NextResponse.json({ pdfs });
   } catch (error) {
     console.error("Error fetching PDFs:", error);
-    return NextResponse.json({ error: "Failed to fetch PDFs" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch PDFs" },
+      { status: 500 },
+    );
   }
 }
 
@@ -53,12 +56,18 @@ export async function POST(req: NextRequest) {
     }
 
     if (file.type !== "application/pdf") {
-      return NextResponse.json({ error: "Only PDF files are allowed" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Only PDF files are allowed" },
+        { status: 400 },
+      );
     }
 
     // Max 50MB
     if (file.size > 50 * 1024 * 1024) {
-      return NextResponse.json({ error: "File size must be less than 50MB" }, { status: 400 });
+      return NextResponse.json(
+        { error: "File size must be less than 50MB" },
+        { status: 400 },
+      );
     }
 
     const { storagePath, originalName } = await uploadPdf(file);
@@ -80,6 +89,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ pdf }, { status: 201 });
   } catch (error) {
     console.error("Error uploading PDF:", error);
-    return NextResponse.json({ error: "Failed to upload PDF" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to upload PDF" },
+      { status: 500 },
+    );
   }
 }

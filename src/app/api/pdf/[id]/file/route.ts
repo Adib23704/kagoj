@@ -1,3 +1,4 @@
+import type { Pdf } from "@/generated/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     // Check if this is a share link access
     const shareId = req.nextUrl.searchParams.get("share");
 
-    let pdf;
+    let pdf: Pdf | null = null;
 
     if (shareId) {
       // Access via share link

@@ -41,7 +41,10 @@ export async function GET(_req: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error("Error fetching shared PDF:", error);
-    return NextResponse.json({ error: "Failed to fetch shared PDF" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch shared PDF" },
+      { status: 500 },
+    );
   }
 }
 
@@ -72,6 +75,9 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error revoking share link:", error);
-    return NextResponse.json({ error: "Failed to revoke share link" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to revoke share link" },
+      { status: 500 },
+    );
   }
 }
