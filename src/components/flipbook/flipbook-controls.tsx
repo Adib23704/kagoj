@@ -4,8 +4,9 @@ import { ChevronLeft, ChevronRight, Volume2, VolumeX } from "lucide-react";
 
 interface FlipbookControlsProps {
   currentPage: number;
-  displayPage: number;
+  displayPage: string;
   totalPages: number;
+  isLastSpread: boolean;
   onPrevPage: () => void;
   onNextPage: () => void;
   onGoToPage: (page: number) => void;
@@ -17,6 +18,7 @@ export function FlipbookControls({
   currentPage,
   displayPage,
   totalPages,
+  isLastSpread,
   onPrevPage,
   onNextPage,
   isMuted,
@@ -40,7 +42,7 @@ export function FlipbookControls({
       <button
         type="button"
         onClick={onNextPage}
-        disabled={currentPage >= totalPages - 1}
+        disabled={isLastSpread}
         className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
       >
         <ChevronRight className="w-5 h-5" />

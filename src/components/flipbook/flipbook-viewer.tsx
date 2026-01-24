@@ -28,6 +28,17 @@ const Page = React.forwardRef<HTMLDivElement, PageProps>((props, ref) => {
 });
 Page.displayName = "Page";
 
+// Invisible spacer page that blends with dark background
+const SpacerPage = React.forwardRef<HTMLDivElement>((_, ref) => {
+  return (
+    <div
+      ref={ref}
+      style={{ backgroundColor: "#3d3d3d", width: "100%", height: "100%" }}
+    />
+  );
+});
+SpacerPage.displayName = "SpacerPage";
+
 interface FlipbookViewerProps {
   pdfUrl: string;
   title?: string;
@@ -62,9 +73,9 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 
   useEffect(() => {
     const updateDimensions = () => {
-      // Double page spread - each page dimension (total width will be 2x)
-      const maxPageWidth = Math.min(500, (window.innerWidth * 0.9) / 2);
-      const maxHeight = window.innerHeight * 0.8;
+      // Double page spread - each page dimension (total width will be 2x for spreads)
+      const maxPageWidth = Math.min(450, (window.innerWidth * 0.9) / 2);
+      const maxHeight = window.innerHeight * 0.78;
       const aspectRatio = Math.SQRT1_2; // A4 aspect ratio
 
       let height = maxHeight;
@@ -153,6 +164,14 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
     [playPageTurn],
   );
 
+  // Total flipbook pages (including spacers)
+  // Spacer at start always, spacer at end only if even number of PDF pages
+  const totalFlipbookPages =
+    pages.length + 1 + (pages.length % 2 === 0 ? 1 : 0);
+
+  // Last valid currentPage index (spreads are at even indices: 0, 2, 4, 6...)
+  const lastSpreadIndex = totalFlipbookPages - 2;
+
   const goToPage = (pageNum: number) => {
     bookRef.current?.pageFlip().flip(pageNum);
   };
@@ -165,11 +184,32 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
     bookRef.current?.pageFlip().flipPrev();
   };
 
-  // Calculate display page for user-friendly numbering
-  const getDisplayPage = () => {
-    // With showCover=true: page 0 is cover (page 1), then spreads
-    return Math.min(currentPage + 1, pages.length);
+  // Calculate display page string for user-friendly numbering
+  // Layout: [Spacer(0), Page1(1), Page2(2), Page3(3), ...]
+  // currentPage 0: Spacer + Page1 → "1" (single)
+  // currentPage 2: Page2 + Page3 → "2-3" (spread)
+  // currentPage 4: Page4 + Page5 → "4-5" (spread)
+  // Last spread with even pages: Page12 + Spacer → "12" (single)
+  const getDisplayPage = (): string => {
+    if (currentPage === 0) {
+      // First spread: spacer + page 1
+      return "1";
+    }
+
+    const leftPage = currentPage; // PDF page on left
+    const rightPage = currentPage + 1; // PDF page on right
+
+    // Check if right page exists (not a spacer)
+    if (rightPage > pages.length) {
+      // Last page alone (even total pages)
+      return String(leftPage);
+    }
+
+    return `${leftPage}-${rightPage}`;
   };
+
+  // Check if we're at the last spread
+  const isLastSpread = currentPage >= lastSpreadIndex;
 
   if (error) {
     return (
@@ -211,32 +251,39 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
           height={dimensions.height}
           size="fixed"
           minWidth={300}
-          maxWidth={600}
+          maxWidth={550}
           minHeight={400}
-          maxHeight={850}
-          showCover={true}
+          maxHeight={780}
+          showCover={false}
           mobileScrollSupport={true}
           onFlip={onFlip}
           className="flipbook"
           style={{}}
           startPage={0}
           drawShadow={true}
-          flippingTime={500}
+          flippingTime={400}
           usePortrait={false}
           startZIndex={0}
           autoSize={false}
-          maxShadowOpacity={0.5}
+          maxShadowOpacity={0.4}
           showPageCorners={false}
           disableFlipByClick={false}
           swipeDistance={30}
         >
-          {pages.map((page) => (
-            <Page
-              key={page.pageNumber}
-              number={page.pageNumber}
-              imageUrl={page.dataUrl}
-            />
-          ))}
+          {/* Build pages array with spacers */}
+          {[
+            <SpacerPage key="spacer-start" />,
+            ...pages.map((page) => (
+              <Page
+                key={page.pageNumber}
+                number={page.pageNumber}
+                imageUrl={page.dataUrl}
+              />
+            )),
+            ...(pages.length % 2 === 0
+              ? [<SpacerPage key="spacer-end" />]
+              : []),
+          ]}
         </HTMLFlipBook>
       </div>
 
@@ -244,6 +291,7 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
         currentPage={currentPage}
         displayPage={getDisplayPage()}
         totalPages={pages.length}
+        isLastSpread={isLastSpread}
         onPrevPage={prevPage}
         onNextPage={nextPage}
         onGoToPage={goToPage}
