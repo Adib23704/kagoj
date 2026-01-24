@@ -1,7 +1,13 @@
 "use client";
 
 import { X } from "lucide-react";
-import { createContext, type ReactNode, useCallback, useContext, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useState,
+} from "react";
 import { cn } from "@/lib/utils";
 
 interface Toast {
@@ -27,14 +33,17 @@ export function useToast() {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const showToast = useCallback((message: string, type: Toast["type"] = "info") => {
-    const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, message, type }]);
+  const showToast = useCallback(
+    (message: string, type: Toast["type"] = "info") => {
+      const id = Math.random().toString(36).slice(2);
+      setToasts((prev) => [...prev, { id, message, type }]);
 
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-  }, []);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    },
+    [],
+  );
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -57,7 +66,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             )}
           >
             <span className="flex-1">{toast.message}</span>
-            <button onClick={() => removeToast(toast.id)} className="hover:opacity-75">
+            <button
+              type="button"
+              onClick={() => removeToast(toast.id)}
+              className="hover:opacity-75"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>

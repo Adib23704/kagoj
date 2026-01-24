@@ -46,7 +46,9 @@ export function PdfCard({ pdf }: PdfCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(
-    pdf.shareLinks[0] ? `${window.location.origin}/view/${pdf.shareLinks[0].shareId}` : null,
+    pdf.shareLinks[0]
+      ? `${window.location.origin}/view/${pdf.shareLinks[0].shareId}`
+      : null,
   );
 
   const handleRename = async () => {
@@ -120,8 +122,8 @@ export function PdfCard({ pdf }: PdfCardProps) {
 
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
-      <div className="h-32 bg-gray-100 flex items-center justify-center">
-        <FileText className="w-16 h-16 text-gray-400" />
+      <div className="h-32 bg-[#333] flex items-center justify-center">
+        <FileText className="w-16 h-16 text-gray-500" />
       </div>
 
       <CardContent className="p-4">
@@ -140,15 +142,19 @@ export function PdfCard({ pdf }: PdfCardProps) {
             <Button size="sm" onClick={handleRename}>
               <Check className="w-4 h-4" />
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setIsRenaming(false)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsRenaming(false)}
+            >
               <X className="w-4 h-4" />
             </Button>
           </div>
         ) : (
-          <h3 className="font-medium text-gray-900 truncate mb-1">{pdf.name}</h3>
+          <h3 className="font-medium text-white truncate mb-1">{pdf.name}</h3>
         )}
 
-        <div className="text-sm text-gray-500 space-y-1 mb-4">
+        <div className="text-sm text-gray-400 space-y-1 mb-4">
           <p>{pdf.pageCount} pages</p>
           <p>{formatBytes(pdf.fileSize)}</p>
           <p>{formatDate(pdf.createdAt)}</p>
@@ -162,11 +168,21 @@ export function PdfCard({ pdf }: PdfCardProps) {
 
         {/* Share URL display */}
         {shareUrl && (
-          <div className="flex items-center gap-2 mb-4 p-2 bg-gray-50 rounded">
-            <LinkIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span className="text-xs text-gray-600 truncate flex-1">{shareUrl}</span>
-            <button onClick={copyToClipboard} className="text-gray-500 hover:text-gray-700">
-              {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+          <div className="flex items-center gap-2 mb-4 p-2 bg-[#333] rounded">
+            <LinkIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+            <span className="text-xs text-gray-400 truncate flex-1">
+              {shareUrl}
+            </span>
+            <button
+              type="button"
+              onClick={copyToClipboard}
+              className="text-gray-400 hover:text-white"
+            >
+              {copied ? (
+                <Check className="w-4 h-4 text-green-400" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
             </button>
           </div>
         )}
@@ -200,7 +216,7 @@ export function PdfCard({ pdf }: PdfCardProps) {
             variant="ghost"
             onClick={handleDelete}
             disabled={isDeleting}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
           >
             <Trash2 className="w-4 h-4" />
           </Button>

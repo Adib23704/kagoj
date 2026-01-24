@@ -1,5 +1,9 @@
 declare module "react-pageflip" {
-  import { Component, CSSProperties, ReactNode } from "react";
+  import { Component, type CSSProperties, type ReactNode } from "react";
+
+  export interface FlipEvent {
+    data: number;
+  }
 
   interface PageFlipProps {
     width: number;

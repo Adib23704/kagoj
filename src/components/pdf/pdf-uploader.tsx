@@ -2,24 +2,30 @@
 
 import { FileText, Loader2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import * as pdfjsLib from "pdfjs-dist";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatBytes } from "@/lib/utils";
 
-// Set worker
-if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-}
+type PDFJSLib = typeof import("pdfjs-dist");
 
 export function PdfUploader() {
   const router = useRouter();
+  const pdfjsRef = useRef<PDFJSLib | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>("");
+
+  const loadPdfjs = async (): Promise<PDFJSLib> => {
+    if (pdfjsRef.current) return pdfjsRef.current;
+
+    const pdfjs = await import("pdfjs-dist");
+    pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+    pdfjsRef.current = pdfjs;
+    return pdfjs;
+  };
 
   const handleFile = useCallback((selectedFile: File) => {
     setError(null);
@@ -58,8 +64,9 @@ export function PdfUploader() {
   };
 
   const getPageCount = async (file: File): Promise<number> => {
+    const pdfjs = await loadPdfjs();
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
     return pdf.numPages;
   };
 
@@ -102,7 +109,9 @@ export function PdfUploader() {
     <div className="max-w-xl mx-auto">
       <Card
         className={`p-8 border-2 border-dashed transition-colors ${
-          isDragging ? "border-gray-400 bg-gray-50" : "border-gray-300 hover:border-gray-400"
+          isDragging
+            ? "border-gray-500 bg-[#333]"
+            : "border-[#404040] hover:border-gray-500"
         }`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -116,22 +125,27 @@ export function PdfUploader() {
             <div className="flex items-center justify-center gap-3 mb-4">
               <FileText className="w-10 h-10 text-gray-400" />
               <div className="text-left">
-                <p className="font-medium text-gray-900 truncate max-w-xs">{file.name}</p>
-                <p className="text-sm text-gray-500">{formatBytes(file.size)}</p>
+                <p className="font-medium text-white truncate max-w-xs">
+                  {file.name}
+                </p>
+                <p className="text-sm text-gray-400">
+                  {formatBytes(file.size)}
+                </p>
               </div>
               <button
+                type="button"
                 onClick={() => setFile(null)}
-                className="p-1 hover:bg-gray-100 rounded"
+                className="p-1 hover:bg-white/10 rounded"
                 disabled={isUploading}
               >
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
 
-            {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+            {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
             {progress && (
-              <p className="text-gray-600 text-sm mb-4 flex items-center justify-center gap-2">
+              <p className="text-gray-400 text-sm mb-4 flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 {progress}
               </p>
@@ -154,8 +168,10 @@ export function PdfUploader() {
         ) : (
           <label className="block text-center cursor-pointer">
             <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-900 font-medium mb-1">Drop your PDF here or click to browse</p>
-            <p className="text-sm text-gray-500">Maximum file size: 50MB</p>
+            <p className="text-white font-medium mb-1">
+              Drop your PDF here or click to browse
+            </p>
+            <p className="text-sm text-gray-400">Maximum file size: 50MB</p>
             <input
               type="file"
               accept="application/pdf"
@@ -165,7 +181,9 @@ export function PdfUploader() {
           </label>
         )}
 
-        {error && !file && <p className="text-red-600 text-sm text-center mt-4">{error}</p>}
+        {error && !file && (
+          <p className="text-red-400 text-sm text-center mt-4">{error}</p>
+        )}
       </Card>
     </div>
   );

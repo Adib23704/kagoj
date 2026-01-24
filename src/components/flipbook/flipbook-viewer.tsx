@@ -1,16 +1,12 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import * as pdfjsLib from "pdfjs-dist";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import HTMLFlipBook from "react-pageflip";
+import HTMLFlipBook, { type FlipEvent } from "react-pageflip";
 import { useSound } from "@/hooks/use-sound";
 import { FlipbookControls } from "./flipbook-controls";
 
-// Set worker
-if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-}
+type PDFJSLib = typeof import("pdfjs-dist");
 
 interface PageProps {
   number: number;
@@ -20,6 +16,7 @@ interface PageProps {
 const Page = React.forwardRef<HTMLDivElement, PageProps>((props, ref) => {
   return (
     <div className="page bg-white" ref={ref}>
+      {/* biome-ignore lint/performance/noImgElement: Using img for PDF.js data URLs which Next.js Image can't handle */}
       <img
         src={props.imageUrl}
         alt={`Page ${props.number}`}
@@ -33,7 +30,6 @@ Page.displayName = "Page";
 
 interface FlipbookViewerProps {
   pdfUrl: string;
-  pageCount: number;
   title?: string;
 }
 
@@ -42,8 +38,9 @@ interface RenderedPage {
   dataUrl: string;
 }
 
-export function FlipbookViewer({ pdfUrl, pageCount, title }: FlipbookViewerProps) {
-  const bookRef = useRef<any>(null);
+export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
+  const bookRef = useRef<HTMLFlipBook>(null);
+  const pdfjsRef = useRef<PDFJSLib | null>(null);
   const [pages, setPages] = useState<RenderedPage[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,21 +48,31 @@ export function FlipbookViewer({ pdfUrl, pageCount, title }: FlipbookViewerProps
   const [error, setError] = useState<string | null>(null);
   const { playPageTurn, isMuted, toggleMute } = useSound();
 
-  // Calculate dimensions for the flipbook
-  const [dimensions, setDimensions] = useState({ width: 400, height: 533 });
+  // Calculate dimensions for the flipbook - double page spread mode
+  const [dimensions, setDimensions] = useState({ width: 450, height: 600 });
+
+  const loadPdfjs = useCallback(async (): Promise<PDFJSLib> => {
+    if (pdfjsRef.current) return pdfjsRef.current;
+
+    const pdfjs = await import("pdfjs-dist");
+    pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+    pdfjsRef.current = pdfjs;
+    return pdfjs;
+  }, []);
 
   useEffect(() => {
     const updateDimensions = () => {
-      const maxWidth = Math.min(500, window.innerWidth * 0.45);
-      const maxHeight = window.innerHeight * 0.75;
-      const aspectRatio = 3 / 4; // Standard PDF aspect ratio
+      // Double page spread - each page dimension (total width will be 2x)
+      const maxPageWidth = Math.min(500, (window.innerWidth * 0.9) / 2);
+      const maxHeight = window.innerHeight * 0.8;
+      const aspectRatio = Math.SQRT1_2; // A4 aspect ratio
 
-      let width = maxWidth;
-      let height = width / aspectRatio;
+      let height = maxHeight;
+      let width = height * aspectRatio;
 
-      if (height > maxHeight) {
-        height = maxHeight;
-        width = height * aspectRatio;
+      if (width > maxPageWidth) {
+        width = maxPageWidth;
+        height = width / aspectRatio;
       }
 
       setDimensions({ width: Math.floor(width), height: Math.floor(height) });
@@ -85,7 +92,8 @@ export function FlipbookViewer({ pdfUrl, pageCount, title }: FlipbookViewerProps
       setError(null);
 
       try {
-        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+        const pdfjs = await loadPdfjs();
+        const pdf = await pdfjs.getDocument(pdfUrl).promise;
         const renderedPages: RenderedPage[] = [];
         const scale = 2; // Higher quality
 
@@ -96,13 +104,17 @@ export function FlipbookViewer({ pdfUrl, pageCount, title }: FlipbookViewerProps
           const viewport = page.getViewport({ scale });
 
           const canvas = document.createElement("canvas");
-          const context = canvas.getContext("2d")!;
+          const context = canvas.getContext("2d");
+          if (!context) {
+            throw new Error("Could not get canvas 2d context");
+          }
           canvas.width = viewport.width;
           canvas.height = viewport.height;
 
           await page.render({
             canvasContext: context,
             viewport: viewport,
+            canvas: canvas,
           }).promise;
 
           renderedPages.push({
@@ -131,10 +143,10 @@ export function FlipbookViewer({ pdfUrl, pageCount, title }: FlipbookViewerProps
     return () => {
       cancelled = true;
     };
-  }, [pdfUrl]);
+  }, [pdfUrl, loadPdfjs]);
 
   const onFlip = useCallback(
-    (e: any) => {
+    (e: FlipEvent) => {
       setCurrentPage(e.data);
       playPageTurn();
     },
@@ -153,6 +165,12 @@ export function FlipbookViewer({ pdfUrl, pageCount, title }: FlipbookViewerProps
     bookRef.current?.pageFlip().flipPrev();
   };
 
+  // Calculate display page for user-friendly numbering
+  const getDisplayPage = () => {
+    // With showCover=true: page 0 is cover (page 1), then spreads
+    return Math.min(currentPage + 1, pages.length);
+  };
+
   if (error) {
     return (
       <div className="flipbook-container">
@@ -167,15 +185,15 @@ export function FlipbookViewer({ pdfUrl, pageCount, title }: FlipbookViewerProps
     return (
       <div className="flipbook-container">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 mb-2">Loading flipbook...</p>
-          <div className="w-48 h-2 bg-gray-200 rounded-full mx-auto overflow-hidden">
+          <Loader2 className="w-12 h-12 animate-spin text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-300 mb-2">Loading flipbook...</p>
+          <div className="w-48 h-2 bg-gray-600 rounded-full mx-auto overflow-hidden">
             <div
-              className="h-full bg-gray-900 transition-all duration-300"
+              className="h-full bg-white transition-all duration-300"
               style={{ width: `${loadingProgress}%` }}
             />
           </div>
-          <p className="text-sm text-gray-500 mt-2">{loadingProgress}%</p>
+          <p className="text-sm text-gray-400 mt-2">{loadingProgress}%</p>
         </div>
       </div>
     );
@@ -183,7 +201,7 @@ export function FlipbookViewer({ pdfUrl, pageCount, title }: FlipbookViewerProps
 
   return (
     <div className="flipbook-container">
-      {title && <h1 className="text-2xl font-bold text-gray-900 mb-6">{title}</h1>}
+      {title && <h1 className="text-2xl font-bold text-white mb-6">{title}</h1>}
 
       <div className="relative">
         {/* @ts-ignore - react-pageflip types issue */}
@@ -191,11 +209,11 @@ export function FlipbookViewer({ pdfUrl, pageCount, title }: FlipbookViewerProps
           ref={bookRef}
           width={dimensions.width}
           height={dimensions.height}
-          size="stretch"
-          minWidth={280}
+          size="fixed"
+          minWidth={300}
           maxWidth={600}
-          minHeight={373}
-          maxHeight={800}
+          minHeight={400}
+          maxHeight={850}
           showCover={true}
           mobileScrollSupport={true}
           onFlip={onFlip}
@@ -203,22 +221,28 @@ export function FlipbookViewer({ pdfUrl, pageCount, title }: FlipbookViewerProps
           style={{}}
           startPage={0}
           drawShadow={true}
-          flippingTime={800}
-          usePortrait={true}
+          flippingTime={500}
+          usePortrait={false}
           startZIndex={0}
-          autoSize={true}
+          autoSize={false}
           maxShadowOpacity={0.5}
-          showPageCorners={true}
+          showPageCorners={false}
           disableFlipByClick={false}
+          swipeDistance={30}
         >
           {pages.map((page) => (
-            <Page key={page.pageNumber} number={page.pageNumber} imageUrl={page.dataUrl} />
+            <Page
+              key={page.pageNumber}
+              number={page.pageNumber}
+              imageUrl={page.dataUrl}
+            />
           ))}
         </HTMLFlipBook>
       </div>
 
       <FlipbookControls
         currentPage={currentPage}
+        displayPage={getDisplayPage()}
         totalPages={pages.length}
         onPrevPage={prevPage}
         onNextPage={nextPage}

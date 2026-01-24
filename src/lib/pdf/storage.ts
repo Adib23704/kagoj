@@ -28,7 +28,10 @@ export async function uploadPdf(
   };
 }
 
-export async function saveThumbnail(pdfId: string, imageBuffer: Buffer): Promise<string> {
+export async function saveThumbnail(
+  pdfId: string,
+  imageBuffer: Buffer,
+): Promise<string> {
   await ensureDir(THUMBNAIL_DIR);
 
   const filename = `${pdfId}.png`;

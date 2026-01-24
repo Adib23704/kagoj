@@ -9,16 +9,25 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
-    { className, variant = "primary", size = "md", isLoading, children, disabled, ...props },
+    {
+      className,
+      variant = "primary",
+      size = "md",
+      isLoading,
+      children,
+      disabled,
+      ...props
+    },
     ref,
   ) => {
     const baseStyles =
       "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
     const variants = {
-      primary: "bg-gray-900 text-white hover:bg-gray-800 focus:ring-gray-500",
-      secondary: "border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500",
-      ghost: "text-gray-700 hover:bg-gray-100 focus:ring-gray-500",
+      primary: "bg-white text-gray-900 hover:bg-gray-100 focus:ring-gray-500",
+      secondary:
+        "border border-[#404040] text-gray-300 hover:bg-white/10 focus:ring-gray-500",
+      ghost: "text-gray-300 hover:bg-white/10 focus:ring-gray-500",
       danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
     };
 
@@ -42,6 +51,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <circle
                 className="opacity-25"
