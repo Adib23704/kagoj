@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  pdfs      Pdf[]
+}
+
+model Pdf {
+  id           String      @id @default(cuid())
+  name         String
+  originalName String
+  storagePath  String
+  fileSize     Int
+  pageCount    Int
+  thumbnailUrl String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shareLinks   ShareLink[]
+
+  @@index([userId])
+}
+
+model ShareLink {
+  id        String   @id @default(cuid())
+  shareId   String   @unique
+  isActive  Boolean  @default(true)
+  viewCount Int      @default(0)
+  createdAt DateTime @default(now())
+  pdfId     String
+  pdf       Pdf      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+
+  @@index([shareId])
+  @@index([pdfId])
+}
