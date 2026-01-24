@@ -6,7 +6,9 @@ import {
   Eye,
   FileText,
   Link as LinkIcon,
+  Link2Off,
   Pencil,
+  RefreshCw,
   Share2,
   Trash2,
   X,
@@ -44,7 +46,11 @@ export function PdfCard({ pdf }: PdfCardProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(pdf.name);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isShareLoading, setIsShareLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [currentShareId, setCurrentShareId] = useState<string | null>(
+    pdf.shareLinks[0]?.shareId ?? null,
+  );
   const [shareUrl, setShareUrl] = useState<string | null>(
     pdf.shareLinks[0]
       ? `${window.location.origin}/view/${pdf.shareLinks[0].shareId}`
@@ -90,6 +96,7 @@ export function PdfCard({ pdf }: PdfCardProps) {
   };
 
   const handleShare = async () => {
+    setIsShareLoading(true);
     try {
       const res = await fetch("/api/share", {
         method: "POST",
@@ -98,13 +105,65 @@ export function PdfCard({ pdf }: PdfCardProps) {
       });
 
       if (res.ok) {
-        const { shareUrl } = await res.json();
+        const { shareUrl, shareLink } = await res.json();
         setShareUrl(shareUrl);
+        setCurrentShareId(shareLink.shareId);
         router.refresh();
       }
     } catch (error) {
       console.error("Failed to create share link:", error);
     }
+    setIsShareLoading(false);
+  };
+
+  const handleRemoveShareLink = async () => {
+    if (!currentShareId) return;
+    if (!confirm("Are you sure you want to remove this share link?")) return;
+
+    setIsShareLoading(true);
+    try {
+      const res = await fetch(`/api/share/${currentShareId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setShareUrl(null);
+        setCurrentShareId(null);
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Failed to remove share link:", error);
+    }
+    setIsShareLoading(false);
+  };
+
+  const handleRegenerateShareLink = async () => {
+    if (!confirm("Are you sure you want to regenerate the share link? The old link will stop working.")) return;
+
+    setIsShareLoading(true);
+    try {
+      // Remove old link first if exists
+      if (currentShareId) {
+        await fetch(`/api/share/${currentShareId}`, { method: "DELETE" });
+      }
+
+      // Create new link
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdfId: pdf.id }),
+      });
+
+      if (res.ok) {
+        const { shareUrl, shareLink } = await res.json();
+        setShareUrl(shareUrl);
+        setCurrentShareId(shareLink.shareId);
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Failed to regenerate share link:", error);
+    }
+    setIsShareLoading(false);
   };
 
   const copyToClipboard = async () => {
@@ -115,8 +174,8 @@ export function PdfCard({ pdf }: PdfCardProps) {
   };
 
   const handleView = () => {
-    if (pdf.shareLinks[0]) {
-      window.open(`/view/${pdf.shareLinks[0].shareId}`, "_blank");
+    if (currentShareId) {
+      window.open(`/view/${currentShareId}`, "_blank");
     }
   };
 
@@ -158,7 +217,7 @@ export function PdfCard({ pdf }: PdfCardProps) {
           <p>{pdf.pageCount} pages</p>
           <p>{formatBytes(pdf.fileSize)}</p>
           <p>{formatDate(pdf.createdAt)}</p>
-          {pdf.shareLinks[0] && (
+          {pdf.shareLinks[0] && currentShareId && (
             <p className="flex items-center gap-1">
               <Eye className="w-3 h-3" />
               {pdf.shareLinks[0].viewCount} views
@@ -177,6 +236,7 @@ export function PdfCard({ pdf }: PdfCardProps) {
               type="button"
               onClick={copyToClipboard}
               className="text-gray-400 hover:text-white"
+              title="Copy link"
             >
               {copied ? (
                 <Check className="w-4 h-4 text-green-400" />
@@ -184,19 +244,37 @@ export function PdfCard({ pdf }: PdfCardProps) {
                 <Copy className="w-4 h-4" />
               )}
             </button>
+            <button
+              type="button"
+              onClick={handleRegenerateShareLink}
+              disabled={isShareLoading}
+              className="text-gray-400 hover:text-white disabled:opacity-50"
+              title="Regenerate link"
+            >
+              <RefreshCw className={`w-4 h-4 ${isShareLoading ? "animate-spin" : ""}`} />
+            </button>
+            <button
+              type="button"
+              onClick={handleRemoveShareLink}
+              disabled={isShareLoading}
+              className="text-gray-400 hover:text-red-400 disabled:opacity-50"
+              title="Remove link"
+            >
+              <Link2Off className="w-4 h-4" />
+            </button>
           </div>
         )}
 
         {/* Actions */}
         <div className="flex gap-2">
-          {pdf.shareLinks[0] && (
+          {currentShareId && (
             <Button size="sm" variant="secondary" onClick={handleView}>
               <Eye className="w-4 h-4 mr-1" />
               View
             </Button>
           )}
           {!shareUrl && (
-            <Button size="sm" variant="secondary" onClick={handleShare}>
+            <Button size="sm" variant="secondary" onClick={handleShare} disabled={isShareLoading}>
               <Share2 className="w-4 h-4 mr-1" />
               Share
             </Button>
