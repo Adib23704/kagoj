@@ -1,106 +1,65 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { ApiError } from "@/lib/api/errors";
+import { withApi } from "@/lib/api/handler";
+import { parseJsonBody } from "@/lib/api/validation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { deletePdf } from "@/lib/pdf/storage";
+import { logger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
 import { pdfRenameSchema } from "@/lib/validations";
 
 interface RouteContext {
 	params: Promise<{ id: string }>;
 }
 
-// GET: Get single PDF
-export async function GET(_req: NextRequest, context: RouteContext) {
+export const GET = withApi<RouteContext>(async (_req, context) => {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Sign in required");
+
+	const { id } = await context.params;
+	const pdf = await prisma.pdf.findFirst({
+		where: { id, userId: session.user.id },
+		include: { shareLinks: { where: { isActive: true } } },
+	});
+	if (!pdf) throw new ApiError("NOT_FOUND", "PDF not found");
+	return NextResponse.json({ pdf });
+});
+
+export const PATCH = withApi<RouteContext>(async (req, context) => {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Sign in required");
+
+	const { id } = await context.params;
+	const { name } = await parseJsonBody(req, pdfRenameSchema);
+
+	const existing = await prisma.pdf.findFirst({
+		where: { id, userId: session.user.id },
+		select: { id: true },
+	});
+	if (!existing) throw new ApiError("NOT_FOUND", "PDF not found");
+
+	const pdf = await prisma.pdf.update({ where: { id }, data: { name } });
+	return NextResponse.json({ pdf });
+});
+
+export const DELETE = withApi<RouteContext>(async (_req, context) => {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Sign in required");
+
+	const { id } = await context.params;
+	const pdf = await prisma.pdf.findFirst({
+		where: { id, userId: session.user.id },
+	});
+	if (!pdf) throw new ApiError("NOT_FOUND", "PDF not found");
+
+	await prisma.pdf.delete({ where: { id } });
+
 	try {
-		const session = await getServerSession(authOptions);
-		const { id } = await context.params;
-
-		if (!session?.user?.id) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		const pdf = await prisma.pdf.findFirst({
-			where: { id, userId: session.user.id },
-			include: {
-				shareLinks: {
-					where: { isActive: true },
-				},
-			},
-		});
-
-		if (!pdf) {
-			return NextResponse.json({ error: "PDF not found" }, { status: 404 });
-		}
-
-		return NextResponse.json({ pdf });
-	} catch (error) {
-		console.error("Error fetching PDF:", error);
-		return NextResponse.json({ error: "Failed to fetch PDF" }, { status: 500 });
+		await storage.delete(pdf.storagePath);
+	} catch (err) {
+		logger.warn({ err, storagePath: pdf.storagePath }, "storage-delete-failed");
 	}
-}
 
-// PATCH: Rename PDF
-export async function PATCH(req: NextRequest, context: RouteContext) {
-	try {
-		const session = await getServerSession(authOptions);
-		const { id } = await context.params;
-
-		if (!session?.user?.id) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		const body = await req.json();
-		const result = pdfRenameSchema.safeParse(body);
-
-		if (!result.success) {
-			return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
-		}
-
-		const existingPdf = await prisma.pdf.findFirst({
-			where: { id, userId: session.user.id },
-		});
-
-		if (!existingPdf) {
-			return NextResponse.json({ error: "PDF not found" }, { status: 404 });
-		}
-
-		const pdf = await prisma.pdf.update({
-			where: { id },
-			data: { name: result.data.name },
-		});
-
-		return NextResponse.json({ pdf });
-	} catch (error) {
-		console.error("Error updating PDF:", error);
-		return NextResponse.json({ error: "Failed to update PDF" }, { status: 500 });
-	}
-}
-
-// DELETE: Delete PDF
-export async function DELETE(_req: NextRequest, context: RouteContext) {
-	try {
-		const session = await getServerSession(authOptions);
-		const { id } = await context.params;
-
-		if (!session?.user?.id) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		const pdf = await prisma.pdf.findFirst({
-			where: { id, userId: session.user.id },
-		});
-
-		if (!pdf) {
-			return NextResponse.json({ error: "PDF not found" }, { status: 404 });
-		}
-
-		await deletePdf(pdf.storagePath);
-
-		await prisma.pdf.delete({ where: { id } });
-
-		return NextResponse.json({ success: true });
-	} catch (error) {
-		console.error("Error deleting PDF:", error);
-		return NextResponse.json({ error: "Failed to delete PDF" }, { status: 500 });
-	}
-}
+	return NextResponse.json({ success: true });
+});

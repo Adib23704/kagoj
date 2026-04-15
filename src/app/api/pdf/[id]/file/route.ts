@@ -1,60 +1,88 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { Readable } from "node:stream";
 import type { Pdf } from "@prisma/client";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { ApiError } from "@/lib/api/errors";
+import { withApi } from "@/lib/api/handler";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getPdfBuffer } from "@/lib/pdf/storage";
+import { storage } from "@/lib/storage";
 
 interface RouteContext {
 	params: Promise<{ id: string }>;
 }
 
-// GET: Serve PDF file
-export async function GET(req: NextRequest, context: RouteContext) {
-	try {
-		const { id } = await context.params;
+function parseRange(header: string, size: number): { start: number; end: number } | null {
+	const m = /^bytes=(\d+)-(\d*)$/.exec(header);
+	if (!m) return null;
+	const start = Number(m[1]);
+	const end = m[2] ? Number(m[2]) : size - 1;
+	if (Number.isNaN(start) || Number.isNaN(end) || start > end || end >= size) return null;
+	return { start, end };
+}
+
+export const GET = withApi<RouteContext>(async (req, context) => {
+	const { id } = await context.params;
+	const nextReq = req as NextRequest;
+	const shareId = nextReq.nextUrl.searchParams.get("share");
+
+	let pdf: Pdf | null = null;
+
+	if (shareId) {
+		const shareLink = await prisma.shareLink.findUnique({
+			where: { shareId },
+			include: { pdf: true },
+		});
+		if (!shareLink?.isActive || shareLink.pdf.id !== id) {
+			throw new ApiError("NOT_FOUND", "Not found");
+		}
+		pdf = shareLink.pdf;
+	} else {
 		const session = await getServerSession(authOptions);
+		if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Sign in required");
+		pdf = await prisma.pdf.findFirst({ where: { id, userId: session.user.id } });
+	}
 
-		const shareId = req.nextUrl.searchParams.get("share");
+	if (!pdf) throw new ApiError("NOT_FOUND", "PDF not found");
 
-		let pdf: Pdf | null = null;
+	const stat = await storage.stat(pdf.storagePath);
+	const rangeHeader = req.headers.get("range");
 
-		if (shareId) {
-			const shareLink = await prisma.shareLink.findUnique({
-				where: { shareId },
-				include: { pdf: true },
-			});
+	const commonHeaders: HeadersInit = {
+		"Content-Type": stat.mime,
+		"Content-Disposition": `inline; filename="${pdf.originalName}"`,
+		"Accept-Ranges": "bytes",
+		"Cache-Control": "private, no-store",
+	};
 
-			if (!shareLink?.isActive || shareLink.pdf.id !== id) {
-				return NextResponse.json({ error: "Not found" }, { status: 404 });
-			}
-
-			pdf = shareLink.pdf;
-		} else {
-			if (!session?.user?.id) {
-				return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-			}
-
-			pdf = await prisma.pdf.findFirst({
-				where: { id, userId: session.user.id },
+	if (rangeHeader) {
+		const range = parseRange(rangeHeader, stat.size);
+		if (!range) {
+			return new NextResponse(null, {
+				status: 416,
+				headers: { "Content-Range": `bytes */${stat.size}` },
 			});
 		}
-
-		if (!pdf) {
-			return NextResponse.json({ error: "PDF not found" }, { status: 404 });
-		}
-
-		const buffer = await getPdfBuffer(pdf.storagePath);
-
-		return new NextResponse(new Uint8Array(buffer), {
+		const nodeStream = await storage.getRange(pdf.storagePath, range.start, range.end);
+		const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
+		return new NextResponse(webStream, {
+			status: 206,
 			headers: {
-				"Content-Type": "application/pdf",
-				"Content-Disposition": `inline; filename="${pdf.originalName}"`,
-				"Cache-Control": "private, max-age=3600",
+				...commonHeaders,
+				"Content-Length": String(range.end - range.start + 1),
+				"Content-Range": `bytes ${range.start}-${range.end}/${stat.size}`,
 			},
 		});
-	} catch (error) {
-		console.error("Error serving PDF:", error);
-		return NextResponse.json({ error: "Failed to serve PDF" }, { status: 500 });
 	}
-}
+
+	const nodeStream = await storage.get(pdf.storagePath);
+	const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
+	return new NextResponse(webStream, {
+		status: 200,
+		headers: {
+			...commonHeaders,
+			"Content-Length": String(stat.size),
+		},
+	});
+});

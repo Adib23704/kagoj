@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+const INITIAL_LIMIT = 20;
+
 export default async function DashboardPage() {
 	const session = await getServerSession(authOptions);
 
@@ -14,21 +16,21 @@ export default async function DashboardPage() {
 		redirect("/signin");
 	}
 
-	const pdfs = await prisma.pdf.findMany({
+	const rows = await prisma.pdf.findMany({
 		where: { userId: session.user.id },
-		orderBy: { createdAt: "desc" },
+		orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+		take: INITIAL_LIMIT + 1,
 		include: {
 			shareLinks: {
 				where: { isActive: true },
-				select: {
-					id: true,
-					shareId: true,
-					viewCount: true,
-					createdAt: true,
-				},
+				select: { id: true, shareId: true, viewCount: true, createdAt: true },
 			},
 		},
 	});
+
+	const hasMore = rows.length > INITIAL_LIMIT;
+	const initialItems = hasMore ? rows.slice(0, INITIAL_LIMIT) : rows;
+	const initialNextCursor = hasMore ? initialItems[initialItems.length - 1].id : null;
 
 	return (
 		<div>
@@ -45,7 +47,7 @@ export default async function DashboardPage() {
 				</Link>
 			</div>
 
-			{pdfs.length === 0 ? (
+			{initialItems.length === 0 ? (
 				<div className="text-center py-12 bg-bg-raised rounded-lg border border-border-strong">
 					<div className="mx-auto w-12 h-12 bg-border-strong rounded-full flex items-center justify-center mb-4">
 						<Plus className="w-6 h-6 text-gray-400" />
@@ -57,7 +59,7 @@ export default async function DashboardPage() {
 					</Link>
 				</div>
 			) : (
-				<PdfList pdfs={pdfs} />
+				<PdfList initialItems={initialItems} initialNextCursor={initialNextCursor} />
 			)}
 		</div>
 	);

@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { ApiError } from "@/lib/api/errors";
@@ -5,39 +6,38 @@ import { withApi } from "@/lib/api/handler";
 import { enforceRateLimit } from "@/lib/api/with-rate-limit";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { uploadPdf } from "@/lib/pdf/storage";
+import { assertPdfMagic, extractPageCount } from "@/lib/pdf/page-count";
+import { storage } from "@/lib/storage";
 
-// GET: List user's PDFs
-export async function GET() {
-	try {
-		const session = await getServerSession(authOptions);
+// GET: List user's PDFs (cursor-based pagination)
+export const GET = withApi(async (req) => {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Sign in required");
 
-		if (!session?.user?.id) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
+	const url = new URL(req.url);
+	const limitParam = Number(url.searchParams.get("limit") ?? 20);
+	const limit = Math.min(Math.max(Number.isFinite(limitParam) ? limitParam : 20, 1), 50);
+	const cursor = url.searchParams.get("cursor");
 
-		const pdfs = await prisma.pdf.findMany({
-			where: { userId: session.user.id },
-			orderBy: { createdAt: "desc" },
-			include: {
-				shareLinks: {
-					where: { isActive: true },
-					select: {
-						id: true,
-						shareId: true,
-						viewCount: true,
-						createdAt: true,
-					},
-				},
+	const rows = await prisma.pdf.findMany({
+		where: { userId: session.user.id },
+		orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+		take: limit + 1,
+		...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+		include: {
+			shareLinks: {
+				where: { isActive: true },
+				select: { id: true, shareId: true, viewCount: true, createdAt: true },
 			},
-		});
+		},
+	});
 
-		return NextResponse.json({ pdfs });
-	} catch (error) {
-		console.error("Error fetching PDFs:", error);
-		return NextResponse.json({ error: "Failed to fetch PDFs" }, { status: 500 });
-	}
-}
+	const hasMore = rows.length > limit;
+	const items = hasMore ? rows.slice(0, limit) : rows;
+	const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+	return NextResponse.json({ items, nextCursor });
+});
 
 // POST: Upload new PDF
 export const POST = withApi(async (req: Request) => {
@@ -66,14 +66,19 @@ export const POST = withApi(async (req: Request) => {
 		throw new ApiError("PAYLOAD_TOO_LARGE", "File size must be less than 50MB");
 	}
 
-	const { storagePath, originalName } = await uploadPdf(file);
-	const pageCount = parseInt(formData.get("pageCount") as string, 10) || 1;
+	const buf = Buffer.from(await file.arrayBuffer());
+	assertPdfMagic(buf);
+	const pageCount = await extractPageCount(buf);
+
+	const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 64) || "upload.pdf";
+	const storageKey = `pdfs/${session.user.id}/${nanoid()}-${safeName}`;
+	await storage.put(storageKey, buf, "application/pdf");
 
 	const pdf = await prisma.pdf.create({
 		data: {
-			name: originalName.replace(/\.pdf$/i, ""),
-			originalName,
-			storagePath,
+			name: file.name.replace(/\.pdf$/i, ""),
+			originalName: file.name,
+			storagePath: storageKey,
 			fileSize: file.size,
 			pageCount,
 			userId: session.user.id,

@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-	/* config options here */
+	output: "standalone",
+	serverExternalPackages: ["pdfjs-dist", "@prisma/client", "@prisma/adapter-pg"],
+	poweredByHeader: false,
+	reactStrictMode: true,
 };
 
 export default nextConfig;

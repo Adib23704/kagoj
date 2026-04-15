@@ -2,30 +2,18 @@
 
 import { FileText, Loader2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatBytes } from "@/lib/utils";
 
-type PDFJSLib = typeof import("pdfjs-dist");
-
 export function PdfUploader() {
 	const router = useRouter();
-	const pdfjsRef = useRef<PDFJSLib | null>(null);
 	const [file, setFile] = useState<File | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
 	const [isUploading, setIsUploading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [progress, setProgress] = useState<string>("");
-
-	const loadPdfjs = async (): Promise<PDFJSLib> => {
-		if (pdfjsRef.current) return pdfjsRef.current;
-
-		const pdfjs = await import("pdfjs-dist");
-		pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-		pdfjsRef.current = pdfjs;
-		return pdfjs;
-	};
 
 	const handleFile = useCallback((selectedFile: File) => {
 		setError(null);
@@ -63,13 +51,6 @@ export function PdfUploader() {
 		}
 	};
 
-	const getPageCount = async (file: File): Promise<number> => {
-		const pdfjs = await loadPdfjs();
-		const arrayBuffer = await file.arrayBuffer();
-		const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-		return pdf.numPages;
-	};
-
 	const handleUpload = async () => {
 		if (!file) return;
 
@@ -77,13 +58,9 @@ export function PdfUploader() {
 		setError(null);
 
 		try {
-			setProgress("Analyzing PDF...");
-			const pageCount = await getPageCount(file);
-
 			setProgress("Uploading...");
 			const formData = new FormData();
 			formData.append("file", file);
-			formData.append("pageCount", pageCount.toString());
 
 			const res = await fetch("/api/pdf", {
 				method: "POST",
@@ -91,8 +68,9 @@ export function PdfUploader() {
 			});
 
 			if (!res.ok) {
-				const data = await res.json();
-				throw new Error(data.error || "Upload failed");
+				const data = await res.json().catch(() => ({}));
+				const msg = data?.error?.message ?? "Upload failed";
+				throw new Error(msg);
 			}
 
 			router.push("/dashboard");
