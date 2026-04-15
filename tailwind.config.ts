@@ -9,8 +9,18 @@ const config: Config = {
 	theme: {
 		extend: {
 			colors: {
-				background: "var(--background)",
-				foreground: "var(--foreground)",
+				"bg-base": "var(--bg-base)",
+				"bg-raised": "var(--bg-raised)",
+				"bg-input": "var(--bg-input)",
+				"border-muted": "var(--border-muted)",
+				"border-strong": "var(--border-strong)",
+				"text-primary": "var(--text-primary)",
+				"text-muted": "var(--text-muted)",
+				"text-subtle": "var(--text-subtle)",
+				accent: "var(--accent)",
+				"accent-hover": "var(--accent-hover)",
+				danger: "var(--danger)",
+				"danger-hover": "var(--danger-hover)",
 			},
 		},
 	},
