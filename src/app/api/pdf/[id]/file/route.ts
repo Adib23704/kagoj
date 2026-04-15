@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { Pdf } from "@/generated/prisma";
+import type { Pdf } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getPdfBuffer } from "@/lib/pdf/storage";

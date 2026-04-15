@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { deletePdf, deleteThumbnail } from "@/lib/pdf/storage";
+import { deletePdf } from "@/lib/pdf/storage";
 import { pdfRenameSchema } from "@/lib/validations";
 
 interface RouteContext {
@@ -95,7 +95,6 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
 		}
 
 		await deletePdf(pdf.storagePath);
-		await deleteThumbnail(pdf.id);
 
 		await prisma.pdf.delete({ where: { id } });
 

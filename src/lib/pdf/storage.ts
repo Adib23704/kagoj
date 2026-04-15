@@ -3,7 +3,6 @@ import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "pdfs");
-const THUMBNAIL_DIR = path.join(process.cwd(), "uploads", "thumbnails");
 
 async function ensureDir(dir: string) {
 	if (!existsSync(dir)) {
@@ -28,17 +27,6 @@ export async function uploadPdf(
 	};
 }
 
-export async function saveThumbnail(pdfId: string, imageBuffer: Buffer): Promise<string> {
-	await ensureDir(THUMBNAIL_DIR);
-
-	const filename = `${pdfId}.png`;
-	const filepath = path.join(THUMBNAIL_DIR, filename);
-
-	await writeFile(filepath, imageBuffer);
-
-	return `/api/thumbnails/${pdfId}`;
-}
-
 export async function getPdfBuffer(storagePath: string): Promise<Buffer> {
 	return readFile(storagePath);
 }
@@ -48,15 +36,6 @@ export async function deletePdf(storagePath: string): Promise<void> {
 		await unlink(storagePath);
 	} catch (error) {
 		console.error("Error deleting PDF:", error);
-	}
-}
-
-export async function deleteThumbnail(pdfId: string): Promise<void> {
-	try {
-		const filepath = path.join(THUMBNAIL_DIR, `${pdfId}.png`);
-		await unlink(filepath);
-	} catch (_error) {
-		// Ignore if thumbnail doesn't exist
 	}
 }
 

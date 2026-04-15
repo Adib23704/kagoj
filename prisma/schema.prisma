@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -24,7 +23,6 @@ model Pdf {
   storagePath  String
   fileSize     Int
   pageCount    Int
-  thumbnailUrl String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   userId       String
