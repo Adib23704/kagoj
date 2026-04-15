@@ -46,8 +46,8 @@ export default async function DashboardPage() {
 			</div>
 
 			{pdfs.length === 0 ? (
-				<div className="text-center py-12 bg-[#2a2a2a] rounded-lg border border-[#3a3a3a]">
-					<div className="mx-auto w-12 h-12 bg-[#3a3a3a] rounded-full flex items-center justify-center mb-4">
+				<div className="text-center py-12 bg-bg-raised rounded-lg border border-border-strong">
+					<div className="mx-auto w-12 h-12 bg-border-strong rounded-full flex items-center justify-center mb-4">
 						<Plus className="w-6 h-6 text-gray-400" />
 					</div>
 					<h3 className="text-lg font-medium text-white mb-2">No flipbooks yet</h3>

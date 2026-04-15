@@ -109,7 +109,7 @@ export function PdfUploader() {
 		<div className="max-w-xl mx-auto">
 			<Card
 				className={`p-8 border-2 border-dashed transition-colors ${
-					isDragging ? "border-gray-500 bg-[#333]" : "border-[#404040] hover:border-gray-500"
+					isDragging ? "border-accent bg-bg-input" : "border-border-strong hover:border-accent"
 				}`}
 				onDragOver={(e) => {
 					e.preventDefault();

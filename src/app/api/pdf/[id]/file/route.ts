@@ -9,30 +9,28 @@ interface RouteContext {
 	params: Promise<{ id: string }>;
 }
 
+// GET: Serve PDF file
 export async function GET(req: NextRequest, context: RouteContext) {
 	try {
 		const { id } = await context.params;
 		const session = await getServerSession(authOptions);
 
-		// Check if this is a share link access
 		const shareId = req.nextUrl.searchParams.get("share");
 
 		let pdf: Pdf | null = null;
 
 		if (shareId) {
-			// Access via share link
 			const shareLink = await prisma.shareLink.findUnique({
 				where: { shareId },
 				include: { pdf: true },
 			});
 
-			if (!shareLink || !shareLink.isActive || shareLink.pdf.id !== id) {
+			if (!shareLink?.isActive || shareLink.pdf.id !== id) {
 				return NextResponse.json({ error: "Not found" }, { status: 404 });
 			}
 
 			pdf = shareLink.pdf;
 		} else {
-			// Access by owner
 			if (!session?.user?.id) {
 				return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 			}

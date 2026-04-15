@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: "PDF ID is required" }, { status: 400 });
 		}
 
-		// Verify PDF belongs to user
 		const pdf = await prisma.pdf.findFirst({
 			where: { id: pdfId, userId: session.user.id },
 		});
@@ -28,7 +27,6 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: "PDF not found" }, { status: 404 });
 		}
 
-		// Generate short share ID
 		const shareId = nanoid(10);
 
 		const shareLink = await prisma.shareLink.create({

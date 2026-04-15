@@ -145,12 +145,10 @@ export function PdfCard({ pdf }: PdfCardProps) {
 
 		setIsShareLoading(true);
 		try {
-			// Remove old link first if exists
 			if (currentShareId) {
 				await fetch(`/api/share/${currentShareId}`, { method: "DELETE" });
 			}
 
-			// Create new link
 			const res = await fetch("/api/share", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -184,7 +182,7 @@ export function PdfCard({ pdf }: PdfCardProps) {
 
 	return (
 		<Card className="overflow-hidden hover:shadow-md transition-shadow">
-			<div className="h-32 bg-[#333] flex items-center justify-center">
+			<div className="h-32 bg-bg-input flex items-center justify-center">
 				<FileText className="w-16 h-16 text-gray-500" />
 			</div>
 
@@ -226,7 +224,7 @@ export function PdfCard({ pdf }: PdfCardProps) {
 
 				{/* Share URL display */}
 				{shareUrl && (
-					<div className="flex items-center gap-2 mb-4 p-2 bg-[#333] rounded">
+					<div className="flex items-center gap-2 mb-4 p-2 bg-bg-input rounded">
 						<LinkIcon className="w-4 h-4 text-gray-500 shrink-0" />
 						<span className="text-xs text-gray-400 truncate flex-1">{shareUrl}</span>
 						<button

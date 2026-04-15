@@ -94,11 +94,9 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
 			return NextResponse.json({ error: "PDF not found" }, { status: 404 });
 		}
 
-		// Delete file from storage
 		await deletePdf(pdf.storagePath);
 		await deleteThumbnail(pdf.id);
 
-		// Delete from database
 		await prisma.pdf.delete({ where: { id } });
 
 		return NextResponse.json({ success: true });

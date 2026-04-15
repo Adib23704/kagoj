@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.3.12/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -81,7 +81,7 @@
 				"useSemanticElements": "off"
 			},
 			"performance": {
-				"noImgElement": "warn"
+				"noImgElement": "off"
 			},
 			"security": {
 				"noDangerouslySetInnerHtml": "warn"

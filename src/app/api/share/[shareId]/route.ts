@@ -25,11 +25,10 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 			},
 		});
 
-		if (!shareLink || !shareLink.isActive) {
+		if (!shareLink?.isActive) {
 			return NextResponse.json({ error: "Link not found" }, { status: 404 });
 		}
 
-		// Increment view count
 		await prisma.shareLink.update({
 			where: { id: shareLink.id },
 			data: { viewCount: { increment: 1 } },

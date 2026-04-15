@@ -23,11 +23,10 @@ export default async function SharedViewerPage({ params }: PageProps) {
 		},
 	});
 
-	if (!shareLink || !shareLink.isActive) {
+	if (!shareLink?.isActive) {
 		notFound();
 	}
 
-	// Increment view count (fire and forget)
 	prisma.shareLink
 		.update({
 			where: { id: shareLink.id },
