@@ -2,8 +2,8 @@ import { BookOpen, LayoutDashboard, Upload } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { ErrorBoundary } from "@/components/error-boundary";
 import { SignOutButton } from "@/components/auth/signout-button";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { authOptions } from "@/lib/auth";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {

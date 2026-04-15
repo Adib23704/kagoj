@@ -4,13 +4,12 @@ Thanks for your interest! This is a small project and PRs are welcome.
 
 ## Dev setup
 
-Prereqs: Node 22+, pnpm 9+, Docker (for Postgres).
+Prereqs: Node 22+, pnpm 9+, a running PostgreSQL 16 instance.
 
 ```bash
 git clone https://github.com/Adib23704/kagoj.git
 cd kagoj
-cp .env.example .env     # edit secrets
-docker compose -f compose.dev.yml up -d postgres
+cp .env.example .env     # set DATABASE_URL to your Postgres + set NEXTAUTH_SECRET
 pnpm install
 pnpm db:push
 pnpm dev

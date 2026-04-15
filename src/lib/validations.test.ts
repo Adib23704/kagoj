@@ -27,7 +27,7 @@ describe("signupSchema", () => {
 
 	it("rejects a password shorter than 8 chars", () => {
 		expect(
-			signupSchema.safeParse({ ...base, password: "1234567", confirmPassword: "1234567" }).success,
+			signupSchema.safeParse({ ...base, password: "1234567", confirmPassword: "1234567" }).success
 		).toBe(false);
 	});
 
@@ -39,9 +39,7 @@ describe("signupSchema", () => {
 
 describe("signinSchema", () => {
 	it("accepts a valid signin payload", () => {
-		expect(
-			signinSchema.safeParse({ email: "a@b.com", password: "anything" }).success,
-		).toBe(true);
+		expect(signinSchema.safeParse({ email: "a@b.com", password: "anything" }).success).toBe(true);
 	});
 
 	it("rejects missing email", () => {
