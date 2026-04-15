@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 export default function NotFound() {
 	return (
 		<div className="min-h-screen bg-gray-100 flex flex-col">
-			{/* Header */}
 			<header className="bg-white border-b border-gray-200 py-3">
 				<div className="max-w-7xl mx-auto px-4">
 					<Link href="/" className="flex items-center gap-2 w-fit">
@@ -15,7 +14,6 @@ export default function NotFound() {
 				</div>
 			</header>
 
-			{/* Content */}
 			<main className="flex-1 flex items-center justify-center px-4">
 				<div className="text-center">
 					<FileQuestion className="w-16 h-16 text-gray-400 mx-auto mb-4" />

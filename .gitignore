@@ -43,3 +43,6 @@ prisma/dev.db-journal
 !/uploads/.gitkeep
 
 src/generated/
+uploads/
+playwright-report/
+test-results/

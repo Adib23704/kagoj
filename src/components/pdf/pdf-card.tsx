@@ -222,7 +222,6 @@ export function PdfCard({ pdf }: PdfCardProps) {
 					)}
 				</div>
 
-				{/* Share URL display */}
 				{shareUrl && (
 					<div className="flex items-center gap-2 mb-4 p-2 bg-bg-input rounded">
 						<LinkIcon className="w-4 h-4 text-gray-500 shrink-0" />
@@ -256,7 +255,6 @@ export function PdfCard({ pdf }: PdfCardProps) {
 					</div>
 				)}
 
-				{/* Actions */}
 				<div className="flex gap-2">
 					{currentShareId && (
 						<Button size="sm" variant="secondary" onClick={handleView}>

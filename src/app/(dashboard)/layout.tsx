@@ -2,6 +2,7 @@ import { BookOpen, LayoutDashboard, Upload } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { SignOutButton } from "@/components/auth/signout-button";
 import { authOptions } from "@/lib/auth";
 
@@ -14,7 +15,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
 	return (
 		<div className="min-h-screen">
-			{/* Header */}
 			<header className="bg-bg-raised border-b border-border-strong">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex justify-between items-center h-16">
@@ -44,8 +44,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 				</div>
 			</header>
 
-			{/* Main content */}
-			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
+			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				<ErrorBoundary>{children}</ErrorBoundary>
+			</main>
 		</div>
 	);
 }
