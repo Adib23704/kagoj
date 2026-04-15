@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { ApiError } from "@/lib/api/errors";
+import { withApi } from "@/lib/api/handler";
+import { enforceRateLimit } from "@/lib/api/with-rate-limit";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uploadPdf } from "@/lib/pdf/storage";
@@ -37,47 +40,45 @@ export async function GET() {
 }
 
 // POST: Upload new PDF
-export async function POST(req: NextRequest) {
-	try {
-		const session = await getServerSession(authOptions);
-
-		if (!session?.user?.id) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		const formData = await req.formData();
-		const file = formData.get("file") as File | null;
-
-		if (!file) {
-			return NextResponse.json({ error: "No file provided" }, { status: 400 });
-		}
-
-		if (file.type !== "application/pdf") {
-			return NextResponse.json({ error: "Only PDF files are allowed" }, { status: 400 });
-		}
-
-		if (file.size > 50 * 1024 * 1024) {
-			return NextResponse.json({ error: "File size must be less than 50MB" }, { status: 400 });
-		}
-
-		const { storagePath, originalName } = await uploadPdf(file);
-
-		const pageCount = parseInt(formData.get("pageCount") as string, 10) || 1;
-
-		const pdf = await prisma.pdf.create({
-			data: {
-				name: originalName.replace(/\.pdf$/i, ""),
-				originalName,
-				storagePath,
-				fileSize: file.size,
-				pageCount,
-				userId: session.user.id,
-			},
-		});
-
-		return NextResponse.json({ pdf }, { status: 201 });
-	} catch (error) {
-		console.error("Error uploading PDF:", error);
-		return NextResponse.json({ error: "Failed to upload PDF" }, { status: 500 });
+export const POST = withApi(async (req: Request) => {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) {
+		throw new ApiError("UNAUTHORIZED", "Sign in required");
 	}
-}
+
+	await enforceRateLimit(req as NextRequest, {
+		name: "pdf-upload",
+		windowMs: 60 * 60 * 1000,
+		max: 20,
+		keyOf: () => session.user.id as string,
+	});
+
+	const formData = await req.formData();
+	const file = formData.get("file") as File | null;
+
+	if (!file) {
+		throw new ApiError("BAD_REQUEST", "No file provided");
+	}
+	if (file.type !== "application/pdf") {
+		throw new ApiError("UNSUPPORTED_MEDIA_TYPE", "Only PDF files are allowed");
+	}
+	if (file.size > 50 * 1024 * 1024) {
+		throw new ApiError("PAYLOAD_TOO_LARGE", "File size must be less than 50MB");
+	}
+
+	const { storagePath, originalName } = await uploadPdf(file);
+	const pageCount = parseInt(formData.get("pageCount") as string, 10) || 1;
+
+	const pdf = await prisma.pdf.create({
+		data: {
+			name: originalName.replace(/\.pdf$/i, ""),
+			originalName,
+			storagePath,
+			fileSize: file.size,
+			pageCount,
+			userId: session.user.id,
+		},
+	});
+
+	return NextResponse.json({ pdf }, { status: 201 });
+});
