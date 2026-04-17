@@ -79,4 +79,34 @@ describe("verification tokens", () => {
 		const result = await consumeVerificationToken(token);
 		expect(result).toEqual({ ok: false, reason: "expired" });
 	});
+
+	it("issue() for one identifier does not touch another identifier's token", async () => {
+		const emailA = uniqueEmail();
+		const emailB = uniqueEmail();
+		emails.push(emailA, emailB);
+		const tokenB = await issueVerificationToken(emailB);
+		await issueVerificationToken(emailA);
+		const rowB = await prisma.verificationToken.findUnique({ where: { token: tokenB } });
+		expect(rowB).not.toBeNull();
+		expect(rowB?.identifier).toBe(emailB);
+	});
+
+	it("consume() is race-safe: only one of two concurrent consumers wins", async () => {
+		const email = uniqueEmail();
+		emails.push(email);
+		const token = await issueVerificationToken(email);
+
+		const [r1, r2] = await Promise.all([
+			consumeVerificationToken(token),
+			consumeVerificationToken(token),
+		]);
+
+		const okResults = [r1, r2].filter((r) => r.ok);
+		const failResults = [r1, r2].filter((r) => !r.ok);
+		expect(okResults).toHaveLength(1);
+		expect(failResults).toHaveLength(1);
+		if (!failResults[0].ok) {
+			expect(failResults[0].reason).toBe("invalid");
+		}
+	});
 });

@@ -1,44 +1,41 @@
-import bcrypt from "bcryptjs";
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
-import { ApiError } from "@/lib/api/errors";
+import { type NextRequest, NextResponse } from "next/server";
 import { withApi } from "@/lib/api/handler";
 import { parseJsonBody } from "@/lib/api/validation";
 import { enforceRateLimit, ipKey } from "@/lib/api/with-rate-limit";
 import { prisma } from "@/lib/db";
-import { logger } from "@/lib/logger";
 import { mailer } from "@/lib/mailer";
 import { verifyEmail as verifyEmailTemplate } from "@/lib/mailer/templates/verify-email";
 import { issueVerificationToken } from "@/lib/tokens/verification";
-import { signupSchema } from "@/lib/validations";
+import { verifySendSchema } from "@/lib/validations";
 
 function appUrl(): string {
 	return process.env.NEXT_PUBLIC_APP_URL ?? process.env.AUTH_URL ?? "http://localhost:3000";
 }
 
-export const POST = withApi(async (req: Request) => {
+export const POST = withApi(async (req) => {
 	await enforceRateLimit(req as NextRequest, {
-		name: "auth-signup",
+		name: "auth-verify-send-ip",
 		windowMs: 60 * 60 * 1000,
-		max: 5,
+		max: 3,
 		keyOf: ipKey,
 	});
 
-	const { name, email, password } = await parseJsonBody(req, signupSchema);
+	const { email } = await parseJsonBody(req, verifySendSchema);
 	const normalizedEmail = email.toLowerCase();
 
-	const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-	if (existing) {
-		throw new ApiError("CONFLICT", "Email already registered");
-	}
-
-	const hashedPassword = await bcrypt.hash(password, 12);
-	const user = await prisma.user.create({
-		data: { name, email: normalizedEmail, password: hashedPassword },
-		select: { id: true, name: true, email: true },
+	await enforceRateLimit(req as NextRequest, {
+		name: "auth-verify-send-email",
+		windowMs: 60 * 60 * 1000,
+		max: 3,
+		keyOf: () => normalizedEmail,
 	});
 
-	try {
+	const user = await prisma.user.findUnique({
+		where: { email: normalizedEmail },
+		select: { id: true, name: true, email: true, emailVerified: true },
+	});
+
+	if (user && user.emailVerified === null) {
 		const token = await issueVerificationToken(user.email);
 		const verifyUrl = `${appUrl()}/api/auth/verify/${token}`;
 		const rendered = verifyEmailTemplate({ name: user.name, verifyUrl });
@@ -48,9 +45,7 @@ export const POST = withApi(async (req: Request) => {
 			text: rendered.text,
 			html: rendered.html,
 		});
-	} catch (err) {
-		logger.warn({ err, userId: user.id }, "signup-verify-email-enqueue-failed");
 	}
 
-	return NextResponse.json({ user }, { status: 201 });
+	return NextResponse.json({ ok: true }, { status: 200 });
 });
