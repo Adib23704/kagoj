@@ -13,7 +13,7 @@ env:
   DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
 
 jobs:
-  static:
+  code-quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -30,7 +30,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
 
-  unit:
+  unit-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
