@@ -9,6 +9,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+
 jobs:
   static:
     runs-on: ubuntu-latest
