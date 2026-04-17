@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { authConfig } from "./auth.config";
 import { prisma } from "./db";
 import { logger } from "./logger";
 
@@ -19,15 +20,8 @@ if (process.env.NEXTAUTH_URL && !process.env.AUTH_URL) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+	...authConfig,
 	secret: authSecret,
-	trustHost: true,
-	session: {
-		strategy: "jwt",
-		maxAge: 30 * 24 * 60 * 60,
-	},
-	pages: {
-		signIn: "/signin",
-	},
 	providers: [
 		Credentials({
 			name: "credentials",
@@ -65,20 +59,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 			},
 		}),
 	],
-	callbacks: {
-		async jwt({ token, user }) {
-			if (user) {
-				token.id = user.id;
-			}
-			return token;
-		},
-		async session({ session, token }) {
-			if (session.user && token.sub) {
-				session.user.id = token.sub;
-			}
-			return session;
-		},
-	},
 });
 
 declare module "next-auth" {
