@@ -2,10 +2,9 @@ import { Readable } from "node:stream";
 import type { Pdf } from "@prisma/client";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { ApiError } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/handler";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { storage } from "@/lib/storage";
 
@@ -39,7 +38,7 @@ export const GET = withApi<RouteContext>(async (req, context) => {
 		}
 		pdf = shareLink.pdf;
 	} else {
-		const session = await getServerSession(authOptions);
+		const session = await auth();
 		if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Sign in required");
 		pdf = await prisma.pdf.findFirst({ where: { id, userId: session.user.id } });
 	}

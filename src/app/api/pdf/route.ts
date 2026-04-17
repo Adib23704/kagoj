@@ -1,17 +1,16 @@
 import { nanoid } from "nanoid";
 import { type NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { ApiError } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/handler";
 import { enforceRateLimit } from "@/lib/api/with-rate-limit";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { assertPdfMagic, extractPageCount } from "@/lib/pdf/page-count";
 import { storage } from "@/lib/storage";
 
 // GET: List user's PDFs (cursor-based pagination)
 export const GET = withApi(async (req) => {
-	const session = await getServerSession(authOptions);
+	const session = await auth();
 	if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Sign in required");
 
 	const url = new URL(req.url);
@@ -41,7 +40,7 @@ export const GET = withApi(async (req) => {
 
 // POST: Upload new PDF
 export const POST = withApi(async (req: Request) => {
-	const session = await getServerSession(authOptions);
+	const session = await auth();
 	if (!session?.user?.id) {
 		throw new ApiError("UNAUTHORIZED", "Sign in required");
 	}

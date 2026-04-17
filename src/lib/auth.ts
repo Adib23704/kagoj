@@ -1,37 +1,57 @@
 import bcrypt from "bcryptjs";
-import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./db";
+import { logger } from "./logger";
 
-export const authOptions: NextAuthOptions = {
+const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
+if (!authSecret) {
+	throw new Error("AUTH_SECRET (or the deprecated NEXTAUTH_SECRET) must be set.");
+}
+
+if (process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
+	logger.warn("NEXTAUTH_SECRET is deprecated; rename it to AUTH_SECRET (removed in Phase 2b).");
+}
+
+if (process.env.NEXTAUTH_URL && !process.env.AUTH_URL) {
+	logger.warn("NEXTAUTH_URL is deprecated; rename it to AUTH_URL (removed in Phase 2b).");
+}
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+	secret: authSecret,
+	trustHost: true,
 	session: {
 		strategy: "jwt",
-		maxAge: 30 * 24 * 60 * 60, // 30 days
+		maxAge: 30 * 24 * 60 * 60,
 	},
 	pages: {
 		signIn: "/signin",
 	},
 	providers: [
-		CredentialsProvider({
+		Credentials({
 			name: "credentials",
 			credentials: {
 				email: { label: "Email", type: "email" },
 				password: { label: "Password", type: "password" },
 			},
 			async authorize(credentials) {
-				if (!credentials?.email || !credentials?.password) {
+				const email = typeof credentials?.email === "string" ? credentials.email : null;
+				const password = typeof credentials?.password === "string" ? credentials.password : null;
+
+				if (!email || !password) {
 					return null;
 				}
 
 				const user = await prisma.user.findUnique({
-					where: { email: credentials.email },
+					where: { email },
 				});
 
 				if (!user?.password) {
 					return null;
 				}
 
-				const isValid = await bcrypt.compare(credentials.password, user.password);
+				const isValid = await bcrypt.compare(password, user.password);
 
 				if (!isValid) {
 					return null;
@@ -53,13 +73,13 @@ export const authOptions: NextAuthOptions = {
 			return token;
 		},
 		async session({ session, token }) {
-			if (session.user) {
-				session.user.id = token.id as string;
+			if (session.user && token.sub) {
+				session.user.id = token.sub;
 			}
 			return session;
 		},
 	},
-};
+});
 
 declare module "next-auth" {
 	interface Session {
@@ -68,11 +88,5 @@ declare module "next-auth" {
 			email?: string | null;
 			name?: string | null;
 		};
-	}
-}
-
-declare module "next-auth/jwt" {
-	interface JWT {
-		id: string;
 	}
 }

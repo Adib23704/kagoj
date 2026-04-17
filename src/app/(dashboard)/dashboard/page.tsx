@@ -1,16 +1,15 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { PdfList } from "@/components/pdf/pdf-list";
 import { Button } from "@/components/ui/button";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 const INITIAL_LIMIT = 20;
 
 export default async function DashboardPage() {
-	const session = await getServerSession(authOptions);
+	const session = await auth();
 
 	if (!session?.user?.id) {
 		redirect("/signin");

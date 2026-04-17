@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { ApiError } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/handler";
 import { enforceRateLimit, ipKey } from "@/lib/api/with-rate-limit";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 interface RouteContext {
@@ -48,7 +47,7 @@ export const GET = withApi<RouteContext>(async (req, context) => {
 // DELETE: Revoke share link
 export async function DELETE(_req: NextRequest, context: RouteContext) {
 	try {
-		const session = await getServerSession(authOptions);
+		const session = await auth();
 		const { shareId } = await context.params;
 
 		if (!session?.user?.id) {

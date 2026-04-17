@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { ApiError } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/handler";
 import { parseJsonBody } from "@/lib/api/validation";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
@@ -14,7 +13,7 @@ interface RouteContext {
 }
 
 export const GET = withApi<RouteContext>(async (_req, context) => {
-	const session = await getServerSession(authOptions);
+	const session = await auth();
 	if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Sign in required");
 
 	const { id } = await context.params;
@@ -27,7 +26,7 @@ export const GET = withApi<RouteContext>(async (_req, context) => {
 });
 
 export const PATCH = withApi<RouteContext>(async (req, context) => {
-	const session = await getServerSession(authOptions);
+	const session = await auth();
 	if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Sign in required");
 
 	const { id } = await context.params;
@@ -44,7 +43,7 @@ export const PATCH = withApi<RouteContext>(async (req, context) => {
 });
 
 export const DELETE = withApi<RouteContext>(async (_req, context) => {
-	const session = await getServerSession(authOptions);
+	const session = await auth();
 	if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Sign in required");
 
 	const { id } = await context.params;
