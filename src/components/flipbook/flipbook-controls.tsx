@@ -35,7 +35,7 @@ export function FlipbookControls({
 				<ChevronLeft className="w-5 h-5" />
 			</button>
 
-			<span className="text-gray-300 min-w-[100px] text-center">
+			<span className="text-gray-300 min-w-25 text-center">
 				Page {displayPage} of {totalPages}
 			</span>
 
