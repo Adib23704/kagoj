@@ -1,12 +1,11 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import HTMLFlipBook, { type FlipEvent } from "react-pageflip";
 import { useSound } from "@/hooks/use-sound";
+import { loadPdfjs } from "@/lib/pdf/pdfjs-client";
 import { FlipbookControls } from "./flipbook-controls";
-
-type PDFJSLib = typeof import("pdfjs-dist");
 
 interface PageProps {
 	number: number;
@@ -16,7 +15,7 @@ interface PageProps {
 const Page = React.forwardRef<HTMLDivElement, PageProps>((props, ref) => {
 	return (
 		<div className="page bg-white" ref={ref}>
-			{/* biome-ignore lint/performance/noImgElement: Using img for PDF.js data URLs which Next.js Image can't handle */}
+			{/* biome-ignore lint/performance/noImgElement: blob: URLs aren't supported by next/image */}
 			<img
 				src={props.imageUrl}
 				alt={`Page ${props.number}`}
@@ -40,12 +39,12 @@ interface FlipbookViewerProps {
 
 interface RenderedPage {
 	pageNumber: number;
-	dataUrl: string;
+	imageUrl: string;
 }
 
 export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 	const bookRef = useRef<HTMLFlipBook>(null);
-	const pdfjsRef = useRef<PDFJSLib | null>(null);
+	const objectUrlsRef = useRef<string[]>([]);
 	const [pages, setPages] = useState<RenderedPage[]>([]);
 	const [currentPage, setCurrentPage] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);
@@ -54,15 +53,6 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 	const { playPageTurn, isMuted, toggleMute } = useSound();
 
 	const [dimensions, setDimensions] = useState({ width: 450, height: 600 });
-
-	const loadPdfjs = useCallback(async (): Promise<PDFJSLib> => {
-		if (pdfjsRef.current) return pdfjsRef.current;
-
-		const pdfjs = await import("pdfjs-dist");
-		pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-		pdfjsRef.current = pdfjs;
-		return pdfjs;
-	}, []);
 
 	useEffect(() => {
 		const updateDimensions = () => {
@@ -88,6 +78,7 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 
 	useEffect(() => {
 		let cancelled = false;
+		const created: string[] = [];
 
 		async function loadPages() {
 			setIsLoading(true);
@@ -98,6 +89,7 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 				const pdf = await pdfjs.getDocument(pdfUrl).promise;
 				const renderedPages: RenderedPage[] = [];
 				const scale = 2;
+				let lastReportedBucket = -1;
 
 				for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
 					if (cancelled) return;
@@ -119,18 +111,36 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 						canvas: canvas,
 					}).promise;
 
-					renderedPages.push({
-						pageNumber: pageNum,
-						dataUrl: canvas.toDataURL("image/jpeg", 0.85),
+					const blob = await new Promise<Blob>((resolve, reject) => {
+						canvas.toBlob(
+							(b) => (b ? resolve(b) : reject(new Error("toBlob returned null"))),
+							"image/jpeg",
+							0.85
+						);
 					});
 
-					setLoadingProgress(Math.round((pageNum / pdf.numPages) * 100));
+					if (cancelled) return;
+
+					const url = URL.createObjectURL(blob);
+					created.push(url);
+					renderedPages.push({ pageNumber: pageNum, imageUrl: url });
+
+					const pct = Math.round((pageNum / pdf.numPages) * 100);
+					const bucket = Math.floor(pct / 5);
+					if (bucket !== lastReportedBucket) {
+						setLoadingProgress(pct);
+						lastReportedBucket = bucket;
+					}
 				}
 
-				if (!cancelled) {
-					setPages(renderedPages);
-					setIsLoading(false);
-				}
+				if (cancelled) return;
+
+				const prior = objectUrlsRef.current;
+				objectUrlsRef.current = created;
+				for (const url of prior) URL.revokeObjectURL(url);
+
+				setPages(renderedPages);
+				setIsLoading(false);
 			} catch (err) {
 				if (!cancelled) {
 					console.error("Error loading PDF:", err);
@@ -144,8 +154,18 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 
 		return () => {
 			cancelled = true;
+			if (objectUrlsRef.current !== created) {
+				for (const url of created) URL.revokeObjectURL(url);
+			}
 		};
-	}, [pdfUrl, loadPdfjs]);
+	}, [pdfUrl]);
+
+	useEffect(() => {
+		return () => {
+			for (const url of objectUrlsRef.current) URL.revokeObjectURL(url);
+			objectUrlsRef.current = [];
+		};
+	}, []);
 
 	const onFlip = useCallback(
 		(e: FlipEvent) => {
@@ -156,37 +176,39 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 	);
 
 	const totalFlipbookPages = pages.length + 1 + (pages.length % 2 === 0 ? 1 : 0);
-
 	const lastSpreadIndex = totalFlipbookPages - 2;
+	const isLastSpread = currentPage >= lastSpreadIndex;
 
-	const goToPage = (pageNum: number) => {
+	const goToPage = useCallback((pageNum: number) => {
 		bookRef.current?.pageFlip().flip(pageNum);
-	};
+	}, []);
 
-	const nextPage = () => {
+	const nextPage = useCallback(() => {
 		bookRef.current?.pageFlip().flipNext();
-	};
+	}, []);
 
-	const prevPage = () => {
+	const prevPage = useCallback(() => {
 		bookRef.current?.pageFlip().flipPrev();
-	};
+	}, []);
 
-	const getDisplayPage = (): string => {
-		if (currentPage === 0) {
-			return "1";
-		}
-
+	const displayPage = useMemo(() => {
+		if (currentPage === 0) return "1";
 		const leftPage = currentPage;
 		const rightPage = currentPage + 1;
-
-		if (rightPage > pages.length) {
-			return String(leftPage);
-		}
-
+		if (rightPage > pages.length) return String(leftPage);
 		return `${leftPage}-${rightPage}`;
-	};
+	}, [currentPage, pages.length]);
 
-	const isLastSpread = currentPage >= lastSpreadIndex;
+	const flipbookChildren = useMemo(
+		() => [
+			<SpacerPage key="spacer-start" />,
+			...pages.map((page) => (
+				<Page key={page.pageNumber} number={page.pageNumber} imageUrl={page.imageUrl} />
+			)),
+			...(pages.length % 2 === 0 ? [<SpacerPage key="spacer-end" />] : []),
+		],
+		[pages]
+	);
 
 	if (error) {
 		return (
@@ -234,7 +256,6 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 					mobileScrollSupport={true}
 					onFlip={onFlip}
 					className="flipbook"
-					style={{}}
 					startPage={0}
 					drawShadow={true}
 					flippingTime={400}
@@ -246,19 +267,13 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 					disableFlipByClick={false}
 					swipeDistance={30}
 				>
-					{[
-						<SpacerPage key="spacer-start" />,
-						...pages.map((page) => (
-							<Page key={page.pageNumber} number={page.pageNumber} imageUrl={page.dataUrl} />
-						)),
-						...(pages.length % 2 === 0 ? [<SpacerPage key="spacer-end" />] : []),
-					]}
+					{flipbookChildren}
 				</HTMLFlipBook>
 			</div>
 
 			<FlipbookControls
 				currentPage={currentPage}
-				displayPage={getDisplayPage()}
+				displayPage={displayPage}
 				totalPages={pages.length}
 				isLastSpread={isLastSpread}
 				onPrevPage={prevPage}

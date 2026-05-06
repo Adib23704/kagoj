@@ -1,19 +1,29 @@
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
+import { Readable } from "node:stream";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { Pdf } from "@/generated/prisma";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getPdfBuffer } from "@/lib/pdf/storage";
 
 interface RouteContext {
 	params: Promise<{ id: string }>;
 }
 
+function buildContentDisposition(originalName: string): string {
+	const ascii = Array.from(originalName, (ch) => {
+		const code = ch.charCodeAt(0);
+		if (code < 0x20 || code === 0x7f || ch === '"' || ch === "\\") return "_";
+		return ch;
+	}).join("");
+	const encoded = encodeURIComponent(originalName);
+	return `inline; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
 export async function GET(req: NextRequest, context: RouteContext) {
 	try {
 		const { id } = await context.params;
-		const session = await getServerSession(authOptions);
-
 		const shareId = req.nextUrl.searchParams.get("share");
 
 		let pdf: Pdf | null = null;
@@ -30,6 +40,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
 			pdf = shareLink.pdf;
 		} else {
+			const session = await getServerSession(authOptions);
 			if (!session?.user?.id) {
 				return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 			}
@@ -43,13 +54,28 @@ export async function GET(req: NextRequest, context: RouteContext) {
 			return NextResponse.json({ error: "PDF not found" }, { status: 404 });
 		}
 
-		const buffer = await getPdfBuffer(pdf.storagePath);
+		const cacheControl = shareId
+			? "private, max-age=300, must-revalidate"
+			: "private, max-age=3600";
+		const etag = `"${pdf.id}"`;
 
-		return new NextResponse(new Uint8Array(buffer), {
+		if (req.headers.get("if-none-match") === etag) {
+			return new NextResponse(null, {
+				status: 304,
+				headers: { ETag: etag, "Cache-Control": cacheControl },
+			});
+		}
+
+		const fileStat = await stat(pdf.storagePath);
+		const stream = Readable.toWeb(createReadStream(pdf.storagePath)) as ReadableStream<Uint8Array>;
+
+		return new NextResponse(stream, {
 			headers: {
 				"Content-Type": "application/pdf",
-				"Content-Disposition": `inline; filename="${pdf.originalName}"`,
-				"Cache-Control": "private, max-age=3600",
+				"Content-Length": String(fileStat.size),
+				"Content-Disposition": buildContentDisposition(pdf.originalName),
+				"Cache-Control": cacheControl,
+				ETag: etag,
 			},
 		});
 	} catch (error) {

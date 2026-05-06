@@ -7,42 +7,6 @@ interface RouteContext {
 	params: Promise<{ shareId: string }>;
 }
 
-export async function GET(_req: NextRequest, context: RouteContext) {
-	try {
-		const { shareId } = await context.params;
-
-		const shareLink = await prisma.shareLink.findUnique({
-			where: { shareId },
-			include: {
-				pdf: {
-					select: {
-						id: true,
-						name: true,
-						pageCount: true,
-					},
-				},
-			},
-		});
-
-		if (!shareLink?.isActive) {
-			return NextResponse.json({ error: "Link not found" }, { status: 404 });
-		}
-
-		await prisma.shareLink.update({
-			where: { id: shareLink.id },
-			data: { viewCount: { increment: 1 } },
-		});
-
-		return NextResponse.json({
-			pdf: shareLink.pdf,
-			shareId: shareLink.shareId,
-		});
-	} catch (error) {
-		console.error("Error fetching shared PDF:", error);
-		return NextResponse.json({ error: "Failed to fetch shared PDF" }, { status: 500 });
-	}
-}
-
 export async function DELETE(_req: NextRequest, context: RouteContext) {
 	try {
 		const session = await getServerSession(authOptions);

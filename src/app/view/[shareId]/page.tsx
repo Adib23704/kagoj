@@ -8,31 +8,27 @@ interface PageProps {
 	params: Promise<{ shareId: string }>;
 }
 
-export default async function SharedViewerPage({ params }: PageProps) {
-	const { shareId } = await params;
-
-	const shareLink = await prisma.shareLink.findUnique({
-		where: { shareId },
+function loadShareLink(shareId: string) {
+	return prisma.shareLink.update({
+		where: { shareId, isActive: true },
+		data: { viewCount: { increment: 1 } },
 		include: {
 			pdf: {
-				select: {
-					id: true,
-					name: true,
-				},
+				select: { id: true, name: true },
 			},
 		},
 	});
+}
 
-	if (!shareLink?.isActive) {
+export default async function SharedViewerPage({ params }: PageProps) {
+	const { shareId } = await params;
+
+	let shareLink: Awaited<ReturnType<typeof loadShareLink>>;
+	try {
+		shareLink = await loadShareLink(shareId);
+	} catch {
 		notFound();
 	}
-
-	prisma.shareLink
-		.update({
-			where: { id: shareLink.id },
-			data: { viewCount: { increment: 1 } },
-		})
-		.catch(() => {});
 
 	const pdfUrl = `/api/pdf/${shareLink.pdf.id}/file?share=${shareId}`;
 

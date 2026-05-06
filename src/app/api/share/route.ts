@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createShareSchema } from "@/lib/validations";
 
 export async function POST(req: NextRequest) {
 	try {
@@ -12,11 +13,12 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const { pdfId } = await req.json();
-
-		if (!pdfId) {
-			return NextResponse.json({ error: "PDF ID is required" }, { status: 400 });
+		const result = createShareSchema.safeParse(await req.json());
+		if (!result.success) {
+			return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
 		}
+
+		const { pdfId } = result.data;
 
 		const pdf = await prisma.pdf.findFirst({
 			where: { id: pdfId, userId: session.user.id },
@@ -35,7 +37,8 @@ export async function POST(req: NextRequest) {
 			},
 		});
 
-		const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL}/view/${shareId}`;
+		const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+		const shareUrl = `${origin}/view/${shareId}`;
 
 		return NextResponse.json({ shareLink, shareUrl }, { status: 201 });
 	} catch (error) {

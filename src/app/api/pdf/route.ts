@@ -1,8 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { PDFDocument } from "pdf-lib";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { uploadPdf } from "@/lib/pdf/storage";
+import { deletePdf, writePdf } from "@/lib/pdf/storage";
+
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+const PDF_MAGIC = Buffer.from("%PDF-");
 
 export async function GET() {
 	try {
@@ -44,36 +48,52 @@ export async function POST(req: NextRequest) {
 		}
 
 		const formData = await req.formData();
-		const file = formData.get("file") as File | null;
+		const file = formData.get("file");
 
-		if (!file) {
+		if (!(file instanceof File)) {
 			return NextResponse.json({ error: "No file provided" }, { status: 400 });
 		}
 
-		if (file.type !== "application/pdf") {
-			return NextResponse.json({ error: "Only PDF files are allowed" }, { status: 400 });
-		}
-
-		if (file.size > 50 * 1024 * 1024) {
+		if (file.size > MAX_UPLOAD_BYTES) {
 			return NextResponse.json({ error: "File size must be less than 50MB" }, { status: 400 });
 		}
 
-		const { storagePath, originalName } = await uploadPdf(file);
+		const buffer = Buffer.from(await file.arrayBuffer());
 
-		const pageCount = parseInt(formData.get("pageCount") as string, 10) || 1;
+		if (
+			buffer.length < PDF_MAGIC.length ||
+			!buffer.subarray(0, PDF_MAGIC.length).equals(PDF_MAGIC)
+		) {
+			return NextResponse.json({ error: "Not a valid PDF file" }, { status: 400 });
+		}
 
-		const pdf = await prisma.pdf.create({
-			data: {
-				name: originalName.replace(/\.pdf$/i, ""),
-				originalName,
-				storagePath,
-				fileSize: file.size,
-				pageCount,
-				userId: session.user.id,
-			},
-		});
+		let pageCount: number;
+		try {
+			const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+			pageCount = doc.getPageCount();
+		} catch {
+			return NextResponse.json({ error: "Could not parse PDF" }, { status: 400 });
+		}
 
-		return NextResponse.json({ pdf }, { status: 201 });
+		const { storagePath } = await writePdf(buffer, file.name);
+
+		try {
+			const pdf = await prisma.pdf.create({
+				data: {
+					name: file.name.replace(/\.pdf$/i, ""),
+					originalName: file.name,
+					storagePath,
+					fileSize: file.size,
+					pageCount,
+					userId: session.user.id,
+				},
+			});
+
+			return NextResponse.json({ pdf }, { status: 201 });
+		} catch (dbError) {
+			await deletePdf(storagePath);
+			throw dbError;
+		}
 	} catch (error) {
 		console.error("Error uploading PDF:", error);
 		return NextResponse.json({ error: "Failed to upload PDF" }, { status: 500 });
