@@ -46,7 +46,7 @@ export function SignupForm() {
 	return (
 		<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 			{error && (
-				<div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+				<div className="p-3 bg-red-950/40 border border-red-800 rounded-lg text-red-300 text-sm">
 					{error}
 				</div>
 			)}

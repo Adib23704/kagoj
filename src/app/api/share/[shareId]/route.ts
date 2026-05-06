@@ -7,7 +7,6 @@ interface RouteContext {
 	params: Promise<{ shareId: string }>;
 }
 
-// GET: Get shared PDF data (public)
 export async function GET(_req: NextRequest, context: RouteContext) {
 	try {
 		const { shareId } = await context.params;
@@ -29,7 +28,6 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 			return NextResponse.json({ error: "Link not found" }, { status: 404 });
 		}
 
-		// Increment view count
 		await prisma.shareLink.update({
 			where: { id: shareLink.id },
 			data: { viewCount: { increment: 1 } },
@@ -45,7 +43,6 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 	}
 }
 
-// DELETE: Revoke share link
 export async function DELETE(_req: NextRequest, context: RouteContext) {
 	try {
 		const session = await getServerSession(authOptions);

@@ -14,8 +14,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
 	return (
 		<div className="min-h-screen">
-			{/* Header */}
-			<header className="bg-[#2a2a2a] border-b border-[#3a3a3a]">
+			<header className="bg-card border-b border-card-border">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex justify-between items-center h-16">
 						<Link href="/dashboard" className="flex items-center gap-2">
@@ -44,7 +43,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
 				</div>
 			</header>
 
-			{/* Main content */}
 			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
 		</div>
 	);

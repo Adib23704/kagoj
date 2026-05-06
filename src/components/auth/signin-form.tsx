@@ -48,13 +48,13 @@ export function SigninForm() {
 	return (
 		<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 			{registered && (
-				<div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-600 text-sm">
+				<div className="p-3 bg-green-950/40 border border-green-800 rounded-lg text-green-300 text-sm">
 					Account created! Please sign in.
 				</div>
 			)}
 
 			{error && (
-				<div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+				<div className="p-3 bg-red-950/40 border border-red-800 rounded-lg text-red-300 text-sm">
 					{error}
 				</div>
 			)}

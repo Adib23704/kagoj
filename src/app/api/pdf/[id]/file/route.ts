@@ -14,13 +14,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
 		const { id } = await context.params;
 		const session = await getServerSession(authOptions);
 
-		// Check if this is a share link access
 		const shareId = req.nextUrl.searchParams.get("share");
 
 		let pdf: Pdf | null = null;
 
 		if (shareId) {
-			// Access via share link
 			const shareLink = await prisma.shareLink.findUnique({
 				where: { shareId },
 				include: { pdf: true },
@@ -32,7 +30,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
 			pdf = shareLink.pdf;
 		} else {
-			// Access by owner
 			if (!session?.user?.id) {
 				return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 			}

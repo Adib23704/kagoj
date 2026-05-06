@@ -4,7 +4,6 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uploadPdf } from "@/lib/pdf/storage";
 
-// GET: List user's PDFs
 export async function GET() {
 	try {
 		const session = await getServerSession(authOptions);
@@ -36,7 +35,6 @@ export async function GET() {
 	}
 }
 
-// POST: Upload new PDF
 export async function POST(req: NextRequest) {
 	try {
 		const session = await getServerSession(authOptions);
@@ -56,14 +54,12 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: "Only PDF files are allowed" }, { status: 400 });
 		}
 
-		// Max 50MB
 		if (file.size > 50 * 1024 * 1024) {
 			return NextResponse.json({ error: "File size must be less than 50MB" }, { status: 400 });
 		}
 
 		const { storagePath, originalName } = await uploadPdf(file);
 
-		// Get page count from formData (set by client after PDF.js processing)
 		const pageCount = parseInt(formData.get("pageCount") as string, 10) || 1;
 
 		const pdf = await prisma.pdf.create({

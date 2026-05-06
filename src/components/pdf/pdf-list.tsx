@@ -1,26 +1,10 @@
 "use client";
 
+import type { PdfWithShareLinks } from "@/lib/types";
 import { PdfCard } from "./pdf-card";
 
-interface ShareLink {
-	id: string;
-	shareId: string;
-	viewCount: number;
-	createdAt: Date;
-}
-
-interface Pdf {
-	id: string;
-	name: string;
-	originalName: string;
-	fileSize: number;
-	pageCount: number;
-	createdAt: Date;
-	shareLinks: ShareLink[];
-}
-
 interface PdfListProps {
-	pdfs: Pdf[];
+	pdfs: PdfWithShareLinks[];
 }
 
 export function PdfList({ pdfs }: PdfListProps) {

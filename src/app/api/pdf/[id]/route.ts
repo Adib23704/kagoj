@@ -9,7 +9,6 @@ interface RouteContext {
 	params: Promise<{ id: string }>;
 }
 
-// GET: Get single PDF
 export async function GET(_req: NextRequest, context: RouteContext) {
 	try {
 		const session = await getServerSession(authOptions);
@@ -39,7 +38,6 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 	}
 }
 
-// PATCH: Rename PDF
 export async function PATCH(req: NextRequest, context: RouteContext) {
 	try {
 		const session = await getServerSession(authOptions);
@@ -76,7 +74,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 	}
 }
 
-// DELETE: Delete PDF
 export async function DELETE(_req: NextRequest, context: RouteContext) {
 	try {
 		const session = await getServerSession(authOptions);
@@ -94,11 +91,9 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
 			return NextResponse.json({ error: "PDF not found" }, { status: 404 });
 		}
 
-		// Delete file from storage
 		await deletePdf(pdf.storagePath);
 		await deleteThumbnail(pdf.id);
 
-		// Delete from database
 		await prisma.pdf.delete({ where: { id } });
 
 		return NextResponse.json({ success: true });
