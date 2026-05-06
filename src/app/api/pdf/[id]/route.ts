@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deletePdf } from "@/lib/pdf/storage";
 import { pdfRenameSchema } from "@/lib/validations";
@@ -11,7 +10,7 @@ interface RouteContext {
 
 export async function GET(_req: NextRequest, context: RouteContext) {
 	try {
-		const session = await getServerSession(authOptions);
+		const session = await auth();
 		const { id } = await context.params;
 
 		if (!session?.user?.id) {
@@ -40,7 +39,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
 	try {
-		const session = await getServerSession(authOptions);
+		const session = await auth();
 		const { id } = await context.params;
 
 		if (!session?.user?.id) {
@@ -76,7 +75,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
 export async function DELETE(_req: NextRequest, context: RouteContext) {
 	try {
-		const session = await getServerSession(authOptions);
+		const session = await auth();
 		const { id } = await context.params;
 
 		if (!session?.user?.id) {

@@ -1,9 +1,29 @@
-import bcrypt from "bcryptjs";
-import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
+import { hash, verify } from "@node-rs/bcrypt";
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./db";
 
-export const authOptions: NextAuthOptions = {
+const BCRYPT_COST = 12;
+
+if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET) {
+	throw new Error("NEXTAUTH_SECRET must be set in production");
+}
+
+let dummyHashPromise: Promise<string> | null = null;
+function getDummyHash(): Promise<string> {
+	if (!dummyHashPromise) {
+		dummyHashPromise = hash("dummy-password", BCRYPT_COST);
+	}
+	return dummyHashPromise;
+}
+
+export async function hashPassword(password: string): Promise<string> {
+	return hash(password, BCRYPT_COST);
+}
+
+export const { auth, handlers, signIn, signOut } = NextAuth({
+	secret: process.env.NEXTAUTH_SECRET,
+	useSecureCookies: process.env.NODE_ENV === "production",
 	session: {
 		strategy: "jwt",
 		maxAge: 30 * 24 * 60 * 60,
@@ -12,8 +32,7 @@ export const authOptions: NextAuthOptions = {
 		signIn: "/signin",
 	},
 	providers: [
-		CredentialsProvider({
-			name: "credentials",
+		Credentials({
 			credentials: {
 				email: { label: "Email", type: "email" },
 				password: { label: "Password", type: "password" },
@@ -23,17 +42,17 @@ export const authOptions: NextAuthOptions = {
 					return null;
 				}
 
+				const email = credentials.email as string;
+				const password = credentials.password as string;
+
 				const user = await prisma.user.findUnique({
-					where: { email: credentials.email },
+					where: { email },
 				});
 
-				if (!user?.password) {
-					return null;
-				}
+				const passwordHash = user?.password ?? (await getDummyHash());
+				const isValid = await verify(password, passwordHash);
 
-				const isValid = await bcrypt.compare(credentials.password, user.password);
-
-				if (!isValid) {
+				if (!user || !isValid) {
 					return null;
 				}
 
@@ -46,20 +65,20 @@ export const authOptions: NextAuthOptions = {
 		}),
 	],
 	callbacks: {
-		async jwt({ token, user }) {
+		jwt({ token, user }) {
 			if (user) {
-				token.id = user.id;
+				token.id = user.id as string;
 			}
 			return token;
 		},
-		async session({ session, token }) {
+		session({ session, token }) {
 			if (session.user) {
 				session.user.id = token.id as string;
 			}
 			return session;
 		},
 	},
-};
+});
 
 declare module "next-auth" {
 	interface Session {
@@ -68,11 +87,5 @@ declare module "next-auth" {
 			email?: string | null;
 			name?: string | null;
 		};
-	}
-}
-
-declare module "next-auth/jwt" {
-	interface JWT {
-		id: string;
 	}
 }
