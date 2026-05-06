@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 				include: { pdf: true },
 			});
 
-			if (!shareLink || !shareLink.isActive || shareLink.pdf.id !== id) {
+			if (!shareLink?.isActive || shareLink.pdf.id !== id) {
 				return NextResponse.json({ error: "Not found" }, { status: 404 });
 			}
 

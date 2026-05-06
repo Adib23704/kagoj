@@ -23,7 +23,7 @@ export default async function SharedViewerPage({ params }: PageProps) {
 		},
 	});
 
-	if (!shareLink || !shareLink.isActive) {
+	if (!shareLink?.isActive) {
 		notFound();
 	}
 

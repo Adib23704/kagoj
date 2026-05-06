@@ -25,7 +25,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 			},
 		});
 
-		if (!shareLink || !shareLink.isActive) {
+		if (!shareLink?.isActive) {
 			return NextResponse.json({ error: "Link not found" }, { status: 404 });
 		}
 
