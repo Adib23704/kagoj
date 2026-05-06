@@ -1,10 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getClientIp, RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { signupSchema } from "@/lib/validations";
 
 export async function POST(req: NextRequest) {
 	try {
+		const limit = rateLimit("signup", getClientIp(req), RATE_LIMITS.signup);
+		if (!limit.allowed) {
+			return NextResponse.json(
+				{ error: "Too many signup attempts. Try again later." },
+				{ status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
+			);
+		}
+
 		const body = await req.json();
 		const result = signupSchema.safeParse(body);
 

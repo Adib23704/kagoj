@@ -3,6 +3,7 @@ import { PDFDocument } from "pdf-lib";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deletePdf, writePdf } from "@/lib/pdf/storage";
+import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 const PDF_MAGIC = Buffer.from("%PDF-");
@@ -44,6 +45,14 @@ export async function POST(req: NextRequest) {
 
 		if (!session?.user?.id) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+
+		const limit = rateLimit("upload", session.user.id, RATE_LIMITS.upload);
+		if (!limit.allowed) {
+			return NextResponse.json(
+				{ error: "Too many uploads. Try again later." },
+				{ status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
+			);
 		}
 
 		const formData = await req.formData();

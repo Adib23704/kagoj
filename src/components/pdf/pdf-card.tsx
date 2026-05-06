@@ -14,7 +14,7 @@ import {
 	X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,9 +35,12 @@ export function PdfCard({ pdf }: PdfCardProps) {
 	const [currentShareId, setCurrentShareId] = useState<string | null>(
 		pdf.shareLinks[0]?.shareId ?? null
 	);
-	const [shareUrl, setShareUrl] = useState<string | null>(
-		pdf.shareLinks[0] ? `${window.location.origin}/view/${pdf.shareLinks[0].shareId}` : null
-	);
+
+	const [origin, setOrigin] = useState("");
+	useEffect(() => {
+		setOrigin(window.location.origin);
+	}, []);
+	const shareUrl = currentShareId && origin ? `${origin}/view/${currentShareId}` : null;
 
 	const handleRename = async () => {
 		if (!newName.trim() || newName === pdf.name) {
@@ -87,8 +90,7 @@ export function PdfCard({ pdf }: PdfCardProps) {
 			});
 
 			if (res.ok) {
-				const { shareUrl, shareLink } = await res.json();
-				setShareUrl(shareUrl);
+				const { shareLink } = await res.json();
 				setCurrentShareId(shareLink.shareId);
 				router.refresh();
 			}
@@ -109,7 +111,6 @@ export function PdfCard({ pdf }: PdfCardProps) {
 			});
 
 			if (res.ok) {
-				setShareUrl(null);
 				setCurrentShareId(null);
 				router.refresh();
 			}
@@ -140,8 +141,7 @@ export function PdfCard({ pdf }: PdfCardProps) {
 			});
 
 			if (res.ok) {
-				const { shareUrl, shareLink } = await res.json();
-				setShareUrl(shareUrl);
+				const { shareLink } = await res.json();
 				setCurrentShareId(shareLink.shareId);
 				router.refresh();
 			}
@@ -206,10 +206,12 @@ export function PdfCard({ pdf }: PdfCardProps) {
 					)}
 				</div>
 
-				{shareUrl && (
+				{currentShareId && (
 					<div className="flex items-center gap-2 mb-4 p-2 bg-surface rounded">
 						<LinkIcon className="w-4 h-4 text-gray-500 shrink-0" />
-						<span className="text-xs text-gray-400 truncate flex-1">{shareUrl}</span>
+						<span className="text-xs text-gray-400 truncate flex-1">
+							{shareUrl ?? `/view/${currentShareId}`}
+						</span>
 						<button
 							type="button"
 							onClick={copyToClipboard}
@@ -246,7 +248,7 @@ export function PdfCard({ pdf }: PdfCardProps) {
 							View
 						</Button>
 					)}
-					{!shareUrl && (
+					{!currentShareId && (
 						<Button size="sm" variant="secondary" onClick={handleShare} disabled={isShareLoading}>
 							<Share2 className="w-4 h-4 mr-1" />
 							Share

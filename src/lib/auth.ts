@@ -2,6 +2,7 @@ import { hash, verify } from "@node-rs/bcrypt";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./db";
+import { getClientIp, RATE_LIMITS, rateLimit } from "./rate-limit";
 
 const BCRYPT_COST = 12;
 
@@ -37,22 +38,23 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
 				email: { label: "Email", type: "email" },
 				password: { label: "Password", type: "password" },
 			},
-			async authorize(credentials) {
+			async authorize(credentials, request) {
 				if (!credentials?.email || !credentials?.password) {
 					return null;
 				}
 
+				const ip = getClientIp(request);
+				const limit = rateLimit("signin", ip, RATE_LIMITS.signin);
+
 				const email = credentials.email as string;
 				const password = credentials.password as string;
 
-				const user = await prisma.user.findUnique({
-					where: { email },
-				});
+				const user = limit.allowed ? await prisma.user.findUnique({ where: { email } }) : null;
 
 				const passwordHash = user?.password ?? (await getDummyHash());
 				const isValid = await verify(password, passwordHash);
 
-				if (!user || !isValid) {
+				if (!limit.allowed || !user || !isValid) {
 					return null;
 				}
 
