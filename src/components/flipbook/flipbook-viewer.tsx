@@ -9,25 +9,19 @@ import { FlipbookControls } from "./flipbook-controls";
 
 interface PageProps {
 	number: number;
-	imageUrl?: string;
+	imageUrl: string;
 }
 
 const Page = React.forwardRef<HTMLDivElement, PageProps>((props, ref) => {
 	return (
 		<div className="page bg-white" ref={ref}>
-			{props.imageUrl ? (
-				// biome-ignore lint/performance/noImgElement: blob: URLs aren't supported by next/image
-				<img
-					src={props.imageUrl}
-					alt={`Page ${props.number}`}
-					className="w-full h-full object-contain"
-					draggable={false}
-				/>
-			) : (
-				<div className="w-full h-full flex items-center justify-center">
-					<Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-				</div>
-			)}
+			{/* biome-ignore lint/performance/noImgElement: blob: URLs aren't supported by next/image */}
+			<img
+				src={props.imageUrl}
+				alt={`Page ${props.number}`}
+				className="w-full h-full object-contain"
+				draggable={false}
+			/>
 		</div>
 	);
 });
@@ -45,10 +39,8 @@ interface FlipbookViewerProps {
 
 interface RenderedPage {
 	pageNumber: number;
-	imageUrl?: string;
+	imageUrl: string;
 }
-
-const INITIAL_RENDER_COUNT = 2;
 
 export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 	const bookRef = useRef<HTMLFlipBook>(null);
@@ -88,10 +80,6 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 		let cancelled = false;
 		const created: string[] = [];
 
-		const prior = objectUrlsRef.current;
-		objectUrlsRef.current = created;
-		for (const url of prior) URL.revokeObjectURL(url);
-
 		async function loadPages() {
 			setIsLoading(true);
 			setError(null);
@@ -100,10 +88,13 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 			try {
 				const pdfjs = await loadPdfjs();
 				const pdf = await pdfjs.getDocument(pdfUrl).promise;
-				const total = pdf.numPages;
+				const renderedPages: RenderedPage[] = [];
 				const scale = 2;
+				let lastReportedBucket = -1;
 
-				async function renderOne(pageNum: number): Promise<string> {
+				for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+					if (cancelled) return;
+
 					const page = await pdf.getPage(pageNum);
 					const viewport = page.getViewport({ scale });
 					const canvas = document.createElement("canvas");
@@ -128,35 +119,28 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 						);
 					});
 
+					if (cancelled) return;
+
 					const url = URL.createObjectURL(blob);
 					created.push(url);
-					return url;
-				}
+					renderedPages.push({ pageNumber: pageNum, imageUrl: url });
 
-				const initialCount = Math.min(INITIAL_RENDER_COUNT, total);
-				const initialUrls: string[] = [];
-				for (let n = 1; n <= initialCount; n++) {
-					if (cancelled) return;
-					initialUrls.push(await renderOne(n));
-					if (cancelled) return;
-					setLoadingProgress(Math.round((n / initialCount) * 100));
+					const pct = Math.round((pageNum / pdf.numPages) * 100);
+					const bucket = Math.floor(pct / 5);
+					if (bucket !== lastReportedBucket) {
+						setLoadingProgress(pct);
+						lastReportedBucket = bucket;
+					}
 				}
-
-				const initialPages: RenderedPage[] = Array.from({ length: total }, (_, i) => ({
-					pageNumber: i + 1,
-					imageUrl: initialUrls[i],
-				}));
 
 				if (cancelled) return;
-				setPages(initialPages);
-				setIsLoading(false);
 
-				for (let n = initialCount + 1; n <= total; n++) {
-					if (cancelled) return;
-					const url = await renderOne(n);
-					if (cancelled) return;
-					setPages((prev) => prev.map((p) => (p.pageNumber === n ? { ...p, imageUrl: url } : p)));
-				}
+				const prior = objectUrlsRef.current;
+				objectUrlsRef.current = created;
+				for (const url of prior) URL.revokeObjectURL(url);
+
+				setPages(renderedPages);
+				setIsLoading(false);
 			} catch (err) {
 				if (!cancelled) {
 					console.error("Error loading PDF:", err);
@@ -170,6 +154,9 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 
 		return () => {
 			cancelled = true;
+			if (objectUrlsRef.current !== created) {
+				for (const url of created) URL.revokeObjectURL(url);
+			}
 		};
 	}, [pdfUrl]);
 
@@ -279,7 +266,6 @@ export function FlipbookViewer({ pdfUrl, title }: FlipbookViewerProps) {
 					showPageCorners={false}
 					disableFlipByClick={false}
 					swipeDistance={30}
-					renderOnlyPageLengthChange={true}
 				>
 					{flipbookChildren}
 				</HTMLFlipBook>
